@@ -29,4 +29,28 @@ public class InventoryMapper {
                 entity.getQuantityReserved(),
                 entity.getUpdatedAt());
     }
+
+    public Inventory toDomain(
+            microservices.ecommerce.inventory.infrastructure.adapters.in.controllers.dtos.InventoryRequest request) {
+        if (request == null)
+            return null;
+        return new Inventory(
+                java.util.UUID.randomUUID(),
+                request.productId(),
+                request.quantityAvailable(),
+                request.quantityReserved(),
+                java.time.LocalDateTime.now());
+    }
+
+    public microservices.ecommerce.inventory.infrastructure.adapters.in.controllers.dtos.InventoryResponse toResponse(
+            Inventory domain) {
+        if (domain == null)
+            return null;
+        return new microservices.ecommerce.inventory.infrastructure.adapters.in.controllers.dtos.InventoryResponse(
+                domain.getId(),
+                domain.getProductId(),
+                domain.getQuantityAvailable(),
+                domain.getQuantityReserved(),
+                domain.getUpdatedAt());
+    }
 }

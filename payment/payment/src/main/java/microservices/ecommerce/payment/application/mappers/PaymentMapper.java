@@ -37,4 +37,20 @@ public class PaymentMapper {
                 entity.getCreatedAt(),
                 entity.getUpdatedAt());
     }
+
+    public microservices.ecommerce.payment.infrastructure.adapters.in.controllers.dtos.PaymentResponse toResponse(
+            Payment domain) {
+        if (domain == null)
+            return null;
+        return new microservices.ecommerce.payment.infrastructure.adapters.in.controllers.dtos.PaymentResponse(
+                domain.getId(),
+                domain.getOrderId(),
+                domain.getAmount(),
+                domain.getCurrency(),
+                domain.getStatus(),
+                domain.getPaymentMethod(),
+                domain.getTransactionReference(),
+                domain.getCreatedAt(),
+                domain.getUpdatedAt());
+    }
 }

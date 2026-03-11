@@ -37,4 +37,20 @@ public class DeliveryMapper {
                 entity.getCreatedAt(),
                 entity.getUpdatedAt());
     }
+
+    public microservices.ecommerce.delivery.infrastructure.adapters.in.controllers.dtos.DeliveryResponse toResponse(
+            Delivery domain) {
+        if (domain == null)
+            return null;
+        return new microservices.ecommerce.delivery.infrastructure.adapters.in.controllers.dtos.DeliveryResponse(
+                domain.getId(),
+                domain.getOrderId(),
+                domain.getCarrier(),
+                domain.getTrackingCode(),
+                domain.getStatus(),
+                domain.getEstimatedDeliveryDate(),
+                domain.getActualDeliveryDate(),
+                domain.getCreatedAt(),
+                domain.getUpdatedAt());
+    }
 }

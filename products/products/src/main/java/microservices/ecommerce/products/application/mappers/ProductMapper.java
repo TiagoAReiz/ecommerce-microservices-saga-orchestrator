@@ -37,4 +37,36 @@ public class ProductMapper {
                 entity.getCreatedAt(),
                 entity.getUpdatedAt());
     }
+
+    public Product toDomain(
+            microservices.ecommerce.products.infrastructure.adapters.in.controllers.dtos.ProductRequest request) {
+        if (request == null)
+            return null;
+        return new Product(
+                java.util.UUID.randomUUID(),
+                request.name(),
+                request.description(),
+                request.price(),
+                request.sku(),
+                request.categoryId(),
+                request.active(),
+                java.time.LocalDateTime.now(),
+                java.time.LocalDateTime.now());
+    }
+
+    public microservices.ecommerce.products.infrastructure.adapters.in.controllers.dtos.ProductResponse toResponse(
+            Product domain) {
+        if (domain == null)
+            return null;
+        return new microservices.ecommerce.products.infrastructure.adapters.in.controllers.dtos.ProductResponse(
+                domain.getId(),
+                domain.getName(),
+                domain.getDescription(),
+                domain.getPrice(),
+                domain.getSku(),
+                domain.getCategoryId(),
+                domain.isActive(),
+                domain.getCreatedAt(),
+                domain.getUpdatedAt());
+    }
 }

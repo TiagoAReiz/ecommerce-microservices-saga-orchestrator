@@ -64,4 +64,29 @@ public class CartMapper {
                 entity.getUpdatedAt(),
                 itemDomains);
     }
+
+    public microservices.ecommerce.cart.infrastructure.adapters.in.controllers.dtos.CartResponse toResponse(
+            Cart domain) {
+        if (domain == null)
+            return null;
+
+        List<microservices.ecommerce.cart.infrastructure.adapters.in.controllers.dtos.CartItemResponse> itemResponses = new ArrayList<>();
+        if (domain.getItems() != null) {
+            itemResponses = domain.getItems().stream()
+                    .map(item -> new microservices.ecommerce.cart.infrastructure.adapters.in.controllers.dtos.CartItemResponse(
+                            item.getId(),
+                            item.getProductId(),
+                            item.getQuantity(),
+                            item.getPriceAtAddition()))
+                    .collect(Collectors.toList());
+        }
+
+        return new microservices.ecommerce.cart.infrastructure.adapters.in.controllers.dtos.CartResponse(
+                domain.getId(),
+                domain.getUserId(),
+                domain.getStatus(),
+                domain.getCreatedAt(),
+                domain.getUpdatedAt(),
+                itemResponses);
+    }
 }

@@ -68,4 +68,31 @@ public class OrderMapper {
                 entity.getUpdatedAt(),
                 itemDomains);
     }
+
+    public microservices.ecommerce.order.infrastructure.adapters.in.controllers.dtos.OrderResponse toResponse(
+            Order domain) {
+        if (domain == null)
+            return null;
+
+        List<microservices.ecommerce.order.infrastructure.adapters.in.controllers.dtos.OrderItemResponse> itemResponses = new ArrayList<>();
+        if (domain.getItems() != null) {
+            itemResponses = domain.getItems().stream()
+                    .map(item -> new microservices.ecommerce.order.infrastructure.adapters.in.controllers.dtos.OrderItemResponse(
+                            item.getId(),
+                            item.getProductId(),
+                            item.getQuantity(),
+                            item.getUnitPrice()))
+                    .collect(Collectors.toList());
+        }
+
+        return new microservices.ecommerce.order.infrastructure.adapters.in.controllers.dtos.OrderResponse(
+                domain.getId(),
+                domain.getUserId(),
+                domain.getStatus(),
+                domain.getTotalAmount(),
+                domain.getShippingAddressId(),
+                domain.getCreatedAt(),
+                domain.getUpdatedAt(),
+                itemResponses);
+    }
 }
