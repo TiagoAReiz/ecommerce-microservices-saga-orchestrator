@@ -4,6 +4,13 @@ server:
 spring:
   application:
     name: gateway-service
+
+  # R2DBC PostgreSQL for Saga State Persistence
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5432/gateway_db
+    username: postgres
+    password: postgres
+
   cloud:
     gateway:
       routes:
@@ -44,7 +51,30 @@ spring:
             allowedMethods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
             allowedHeaders: "*"
 
+# Microservice base URLs for WebClient orchestration calls
+app:
+  services:
+    products-url: http://localhost:8081
+    inventory-url: http://localhost:8082
+    cart-url: http://localhost:8083
+    order-url: http://localhost:8084
+    payment-url: http://localhost:8085
+    delivery-url: http://localhost:8086
+  webclient:
+    connect-timeout-ms: 5000
+    read-timeout-ms: 5000
+  jwt:
+    secret: my-super-secret-jwt-key-that-should-be-at-least-256-bits-long-for-hs256
+    public-paths:
+      - /api/v1/products/**
+      - /actuator/**
+  saga:
+    recovery:
+      stuck-threshold-minutes: 5
+      cron: "0 */1 * * * *"
+
 logging:
   level:
     org.springframework.cloud.gateway: DEBUG
     reactor.netty.http.client: DEBUG
+    microservices.ecommerce.gateway: DEBUG

@@ -43,17 +43,17 @@ The Gateway already runs on Spring Cloud Gateway (WebFlux/Netty). All downstream
 - **Rationale:** Centralizing auth at the Gateway means microservices don't need to implement their own JWT validation. The filter runs before any route predicate, covering both proxied and orchestrated endpoints
 - **Alternative considered:** Spring Security's built-in OAuth2 Resource Server — could be used later, but a custom filter gives us more control initially
 
-### 5. Compensating Transactions via Orchestrator Logic
-- **Decision:** Implement compensation inline in the orchestration service (try/catch each step, undo on failure)
-- **Rationale:** For the initial implementation, simple sequential compensation is sufficient. If a step fails, the orchestrator calls the compensating endpoint for each previously completed step in reverse order
-- **Alternative considered:** Saga state machine (e.g., Spring Statemachine) — deferred as over-engineering for the current number of steps
+### 5. Persistent State Machine (Saga Log)
+- **Decision:** Implement a State Machine that persists every step of the Saga to a PostgreSQL database (`saga_states` table) using R2DBC.
+- **Rationale:** If the Gateway crashes mid-saga, any non-persisted state is lost, leading to zombie states (e.g., inventory stuck in reserved status). Persisting the state allows a scheduled job to recover and compensate stuck sagas automatically.
+- **Alternative considered:** In-memory Saga (inline try/catch) — rejected because it makes the Gateway a stateful single point of failure.
 
 ## Risks / Trade-offs
 
 | Risk | Mitigation |
 |------|------------|
 | Synchronous orchestration has higher latency (sequential HTTP calls) | Acceptable for MVP; can parallelize independent steps (e.g., Payment + Delivery scheduling) later |
-| Single point of failure at Gateway | Gateway is stateless — can be horizontally scaled behind a load balancer |
-| Partial failure during compensation (e.g., refund call also fails) | Log compensation failures for manual intervention; add retry logic in a future iteration |
+| Gateway requires its own Database (PostgreSQL) | Adds infrastructure dependency, but eliminates the single point of failure for saga states |
+| Partial failure during compensation (e.g., refund call also fails) | Log compensation failures and use the persistent Saga Log to retry compensation later |
 | WebClient timeout/connection issues to downstream services | Configure timeouts and circuit breakers (Resilience4J) in a follow-up change |
 | JWT secret management | Use environment variables initially; migrate to Vault/secrets manager later |

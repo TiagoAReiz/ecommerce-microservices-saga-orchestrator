@@ -44,3 +44,16 @@ The orchestrator SHALL implement compensating transactions that undo completed s
 #### Scenario: Compensation step itself fails
 - **WHEN** a compensating transaction fails (e.g., inventory release call times out)
 - **THEN** the Gateway SHALL log the compensation failure with full context (saga ID, step, error) and continue compensating remaining steps
+
+---
+
+### Requirement: Saga State Persistence and Failover Recovery
+The Gateway SHALL act as a Saga Execution Coordinator (SEC) by persisting the state of each saga step to a database to prevent stuck resources in the event of a Gateway crash.
+
+#### Scenario: Saga step completion is persisted
+- **WHEN** the orchestrator successfully completes a step of a saga (e.g., Cart retrieval, Inventory reservation)
+- **THEN** the Gateway SHALL write the new saga state to the database (`saga_states` table) before proceeding to the next step
+
+#### Scenario: Recovery of interrupted sagas
+- **WHEN** a saga is interrupted due to a Gateway crash or restart (status remains in a non-terminal state like PENDING_INVENTORY for too long)
+- **THEN** a background scheduled job SHALL detect the stuck saga, mark its status as FAILED, and trigger compensating transactions for any successfully completed steps to release downstream resources

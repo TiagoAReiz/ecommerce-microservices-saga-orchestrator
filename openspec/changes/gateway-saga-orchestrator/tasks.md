@@ -1,9 +1,10 @@
 ## 1. Gateway Dependencies & Configuration
 
-- [ ] 1.1 Add `spring-boot-starter-webflux` dependency to Gateway `pom.xml` (for WebClient)
+- [ ] 1.1 Add `spring-boot-starter-webflux`, `spring-boot-starter-data-r2dbc`, and `org.postgresql:r2dbc-postgresql` dependencies to Gateway `pom.xml`
 - [ ] 1.2 Add `spring-boot-starter-security` dependency to Gateway `pom.xml`
 - [ ] 1.3 Add `io.jsonwebtoken:jjwt-api`, `jjwt-impl`, `jjwt-jackson` dependencies to Gateway `pom.xml`
-- [ ] 1.4 Add microservice base URL properties to `application.yml` under `app.services.*` (products, inventory, cart, order, payment, delivery)
+- [ ] 1.4 Add PostgreSQL database connection properties to `application.yml` (for R2DBC)
+- [ ] 1.5 Add microservice base URL properties to `application.yml` under `app.services.*` (products, inventory, cart, order, payment, delivery)
 - [ ] 1.5 Add WebClient timeout properties to `application.yml` (connection and read timeout per service, default 5s)
 - [ ] 1.6 Add JWT secret key and public endpoint allowlist to `application.yml`
 
@@ -55,3 +56,13 @@
 - [ ] 6.2 Create custom exception classes: `SagaStepFailedException`, `CompensationFailedException`, `InsufficientStockException`
 - [ ] 6.3 Implement compensation failure logging with full context (saga ID, step name, error details)
 - [ ] 6.4 Add structured logging (saga start, step transitions, saga completion/failure)
+
+## 7. Saga Execution Coordinator (State Persistence)
+
+- [ ] 7.1 Create Flyway/Liquibase migration script for `saga_states` table in Gateway database
+- [ ] 7.2 Create `SagaState` entity class mapped to `saga_states` table
+- [ ] 7.3 Create `SagaStateRepository` extending `R2dbcRepository`
+- [ ] 7.4 Create `SagaExecutionCoordinator` service to wrap saga steps, persisting state transitions to the DB before/after each WebClient call
+- [ ] 7.5 Refactor `CheckoutService` and `OrderCancellationService` to use `SagaExecutionCoordinator` for persisting state
+- [ ] 7.6 Create `@Scheduled` Recovery Job to poll database for sagas stuck in non-terminal states (e.g., PENDING > 5 minutes)
+- [ ] 7.7 Implement Recovery Job logic to trigger compensation for any stuck/failed sagas

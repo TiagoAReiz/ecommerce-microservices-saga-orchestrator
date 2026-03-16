@@ -7,6 +7,8 @@ We need the Gateway to coordinate multi-step business flows (Saga Orchestrator p
 ## What Changes
 
 - **Add Saga Orchestrator logic** inside the Gateway to coordinate multi-service workflows (checkout, order cancellation, etc.)
+- **Implement a Stateful Saga (State Machine)** persisting each step to a database (`saga_states`) to survive Gateway crashes
+- **Add a Saga Recovery Job** to automatically resume or compensate stuck sagas after a system failure
 - **Add reactive WebClient** to call individual microservices from within orchestration controllers
 - **Keep existing Spring Cloud Gateway routes** for simple CRUD passthrough (e.g., `GET /api/v1/products`)
 - **Add custom orchestration endpoints** that span multiple microservices (e.g., `POST /api/v1/checkout`)
@@ -25,8 +27,8 @@ _(No existing specs to modify)_
 
 ## Impact
 
-- **Gateway microservice**: Major refactor — adds orchestration controllers, WebClient beans, security filters, and error handling alongside existing passive routes
-- **`pom.xml`**: Needs `spring-boot-starter-webflux` (for WebClient), `spring-boot-starter-security`, and `jjwt` dependencies
-- **`application.yml`**: Needs microservice base URLs extracted into config properties for WebClient usage
+- **Gateway microservice**: Major refactor — adds orchestration controllers, WebClient beans, security filters, error handling, **and a PostgreSQL Database with R2DBC for reactive state persistence**
+- **`pom.xml`**: Needs `spring-boot-starter-webflux`, `spring-boot-starter-security`, `spring-boot-starter-data-r2dbc`, `postgresql`, `r2dbc-postgresql`, and `jjwt`
+- **`application.yml`**: Needs DB connection strings and microservice base URLs
 - **All 6 microservices**: No code changes required — they already expose REST APIs via their own controllers; the Gateway will call them via HTTP
 - **API contracts**: New endpoints introduced (`/api/v1/checkout`, `/api/v1/orders/{id}/cancel`) that don't map to any single microservice
