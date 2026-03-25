@@ -27,6 +27,8 @@ public class SagaState {
     private UUID orderId;
     private String payload;
     private String errorMessage;
+    @Builder.Default
+    private int retryCount = 0;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
