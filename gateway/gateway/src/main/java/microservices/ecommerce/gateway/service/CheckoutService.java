@@ -1,5 +1,7 @@
 package microservices.ecommerce.gateway.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import microservices.ecommerce.gateway.dto.cart.CartItemResponse;
 import microservices.ecommerce.gateway.dto.cart.CartResponse;
 import microservices.ecommerce.gateway.dto.checkout.CheckoutRequest;
@@ -19,7 +21,6 @@ import microservices.ecommerce.gateway.saga.SagaExecutionCoordinator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -28,7 +29,6 @@ import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -44,6 +44,7 @@ public class CheckoutService {
     private final WebClient paymentWebClient;
     private final WebClient deliveryWebClient;
     private final SagaExecutionCoordinator sagaCoordinator;
+    private final ObjectMapper objectMapper;
 
     public CheckoutService(
             @Qualifier("cartWebClient") WebClient cartWebClient,
@@ -51,13 +52,15 @@ public class CheckoutService {
             @Qualifier("orderWebClient") WebClient orderWebClient,
             @Qualifier("paymentWebClient") WebClient paymentWebClient,
             @Qualifier("deliveryWebClient") WebClient deliveryWebClient,
-            SagaExecutionCoordinator sagaCoordinator) {
+            SagaExecutionCoordinator sagaCoordinator,
+            ObjectMapper objectMapper) {
         this.cartWebClient = cartWebClient;
         this.inventoryWebClient = inventoryWebClient;
         this.orderWebClient = orderWebClient;
         this.paymentWebClient = paymentWebClient;
         this.deliveryWebClient = deliveryWebClient;
         this.sagaCoordinator = sagaCoordinator;
+        this.objectMapper = objectMapper;
     }
 
     public Mono<CheckoutResponse> executeCheckout(CheckoutRequest request) {
@@ -80,7 +83,9 @@ public class CheckoutService {
                     List<CartItemResponse> cartItems = cart.items();
 
                     // Step 2: Reserve Inventory for all items
+                    // Persist cartItems in payload BEFORE reserving so the recovery job can compensate
                     return sagaCoordinator.updateStep(saga, "RESERVE_INVENTORY")
+                            .flatMap(s -> sagaCoordinator.savePayload(s, serializeCartItems(cartItems)))
                             .flatMap(s -> reserveAllInventory(cartItems))
                             .flatMap(reservedItems -> {
                                 log.info("Saga [{}] id={} - Inventory reserved for {} items",
@@ -226,6 +231,17 @@ public class CheckoutService {
                 .uri("/api/v1/carts/{userId}/checkout", userId)
                 .retrieve()
                 .bodyToMono(Void.class);
+    }
+
+    // --- Helpers ---
+
+    private String serializeCartItems(List<CartItemResponse> items) {
+        try {
+            return objectMapper.writeValueAsString(items);
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to serialize cartItems to payload: {}", e.getMessage());
+            return "[]";
+        }
     }
 
     // --- Compensation ---

@@ -79,4 +79,10 @@ public class SagaExecutionCoordinator {
         state.setUpdatedAt(LocalDateTime.now());
         return repository.save(state);
     }
+
+    public Mono<SagaState> savePayload(SagaState state, String payload) {
+        state.setPayload(payload);
+        state.setUpdatedAt(LocalDateTime.now());
+        return repository.save(state);
+    }
 }
