@@ -11,6 +11,12 @@ spring:
     username: postgres
     password: postgres
 
+  flyway:
+    enabled: true
+    url: jdbc:postgresql://localhost:5432/gateway_db
+    user: postgres
+    password: postgres
+
   cloud:
     gateway:
       routes:

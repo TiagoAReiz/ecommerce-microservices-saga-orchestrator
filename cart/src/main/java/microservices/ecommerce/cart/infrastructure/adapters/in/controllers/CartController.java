@@ -6,6 +6,7 @@ import microservices.ecommerce.cart.application.ports.in.usecases.CartUseCase;
 import microservices.ecommerce.cart.core.entities.Cart;
 import microservices.ecommerce.cart.infrastructure.adapters.in.controllers.dtos.CartItemRequest;
 import microservices.ecommerce.cart.infrastructure.adapters.in.controllers.dtos.CartResponse;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,7 +21,7 @@ public class CartController {
     private final CartMapper cartMapper;
 
     @PostMapping("/{userId}/items")
-    public ResponseEntity<CartResponse> addItemToCart(@PathVariable UUID userId, @RequestBody CartItemRequest request) {
+    public ResponseEntity<CartResponse> addItemToCart(@PathVariable UUID userId, @Valid @RequestBody CartItemRequest request) {
         Cart cart = cartUseCase.addItemToCart(userId, request);
         return ResponseEntity.ok(cartMapper.toResponse(cart));
     }
