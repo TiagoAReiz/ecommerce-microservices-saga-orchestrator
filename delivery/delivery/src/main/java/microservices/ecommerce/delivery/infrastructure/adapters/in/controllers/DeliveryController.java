@@ -6,6 +6,7 @@ import microservices.ecommerce.delivery.application.ports.in.usecases.DeliveryUs
 import microservices.ecommerce.delivery.core.entities.Delivery;
 import microservices.ecommerce.delivery.infrastructure.adapters.in.controllers.dtos.DeliveryRequest;
 import microservices.ecommerce.delivery.infrastructure.adapters.in.controllers.dtos.DeliveryResponse;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,7 +22,7 @@ public class DeliveryController {
     private final DeliveryMapper deliveryMapper;
 
     @PostMapping
-    public ResponseEntity<DeliveryResponse> scheduleDelivery(@RequestBody DeliveryRequest request) {
+    public ResponseEntity<DeliveryResponse> scheduleDelivery(@Valid @RequestBody DeliveryRequest request) {
         Delivery delivery = deliveryUseCase.scheduleDelivery(request);
         return new ResponseEntity<>(deliveryMapper.toResponse(delivery), HttpStatus.CREATED);
     }

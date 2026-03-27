@@ -65,4 +65,15 @@ public class GlobalExceptionHandler {
                 "timestamp", LocalDateTime.now().toString()
         ));
     }
+
+    @ExceptionHandler(org.springframework.web.bind.support.WebExchangeBindException.class)
+    public ResponseEntity<Map<String, Object>> handleValidation(org.springframework.web.bind.support.WebExchangeBindException ex) {
+        java.util.Map<String, String> fieldErrors = ex.getBindingResult().getFieldErrors().stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        org.springframework.validation.FieldError::getField,
+                        org.springframework.validation.FieldError::getDefaultMessage,
+                        (a, b) -> a));
+        return ResponseEntity.badRequest()
+                .body(Map.of("status", 400, "error", "Validation failed", "fields", fieldErrors));
+    }
 }
