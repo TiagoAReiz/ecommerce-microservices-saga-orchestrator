@@ -6,6 +6,7 @@ import microservices.ecommerce.order.application.ports.in.usecases.OrderUseCase;
 import microservices.ecommerce.order.core.entities.Order;
 import microservices.ecommerce.order.infrastructure.adapters.in.controllers.dtos.OrderRequest;
 import microservices.ecommerce.order.infrastructure.adapters.in.controllers.dtos.OrderResponse;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -23,7 +24,7 @@ public class OrderController {
     private final OrderMapper orderMapper;
 
     @PostMapping
-    public ResponseEntity<OrderResponse> createOrder(@RequestBody OrderRequest request) {
+    public ResponseEntity<OrderResponse> createOrder(@Valid @RequestBody OrderRequest request) {
         Order order = orderUseCase.createOrder(request);
         return new ResponseEntity<>(orderMapper.toResponse(order), HttpStatus.CREATED);
     }
