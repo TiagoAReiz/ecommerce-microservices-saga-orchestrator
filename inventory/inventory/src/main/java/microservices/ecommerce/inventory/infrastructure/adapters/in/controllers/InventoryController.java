@@ -6,6 +6,7 @@ import microservices.ecommerce.inventory.application.ports.in.usecases.Inventory
 import microservices.ecommerce.inventory.core.entities.Inventory;
 import microservices.ecommerce.inventory.infrastructure.adapters.in.controllers.dtos.InventoryRequest;
 import microservices.ecommerce.inventory.infrastructure.adapters.in.controllers.dtos.InventoryResponse;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,7 +21,7 @@ public class InventoryController {
     private final InventoryMapper inventoryMapper;
 
     @PostMapping("/stock")
-    public ResponseEntity<InventoryResponse> addStock(@RequestBody InventoryRequest request) {
+    public ResponseEntity<InventoryResponse> addStock(@Valid @RequestBody InventoryRequest request) {
         Inventory inventory = inventoryUseCase.addStock(request.productId(), request.quantityAvailable()); // using
                                                                                                            // quantityAvailable
                                                                                                            // field as
@@ -31,7 +32,7 @@ public class InventoryController {
     }
 
     @PostMapping("/reserve")
-    public ResponseEntity<InventoryResponse> reserveStock(@RequestBody InventoryRequest request) {
+    public ResponseEntity<InventoryResponse> reserveStock(@Valid @RequestBody InventoryRequest request) {
         Inventory inventory = inventoryUseCase.reserveStock(request.productId(), request.quantityReserved()); // using
                                                                                                               // quantityReserved
                                                                                                               // field
@@ -45,7 +46,7 @@ public class InventoryController {
     }
 
     @PostMapping("/release")
-    public ResponseEntity<InventoryResponse> releaseStock(@RequestBody InventoryRequest request) {
+    public ResponseEntity<InventoryResponse> releaseStock(@Valid @RequestBody InventoryRequest request) {
         Inventory inventory = inventoryUseCase.releaseStock(request.productId(), request.quantityReserved()); // again,
                                                                                                               // using
                                                                                                               // as

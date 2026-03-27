@@ -6,6 +6,7 @@ import microservices.ecommerce.payment.application.ports.in.usecases.PaymentUseC
 import microservices.ecommerce.payment.core.entities.Payment;
 import microservices.ecommerce.payment.infrastructure.adapters.in.controllers.dtos.PaymentRequest;
 import microservices.ecommerce.payment.infrastructure.adapters.in.controllers.dtos.PaymentResponse;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -23,7 +24,7 @@ public class PaymentController {
     private final PaymentMapper paymentMapper;
 
     @PostMapping
-    public ResponseEntity<PaymentResponse> processPayment(@RequestBody PaymentRequest request) {
+    public ResponseEntity<PaymentResponse> processPayment(@Valid @RequestBody PaymentRequest request) {
         Payment payment = paymentUseCase.processPayment(request);
         return new ResponseEntity<>(paymentMapper.toResponse(payment), HttpStatus.CREATED);
     }
