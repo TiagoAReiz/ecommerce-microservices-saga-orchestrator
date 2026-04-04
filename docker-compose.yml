@@ -74,6 +74,7 @@ services:
       - ORDER_SERVICE_URL=http://order:8080
       - PAYMENT_SERVICE_URL=http://payment:8080
       - DELIVERY_SERVICE_URL=http://delivery:8080
+      - USERS_SERVICE_URL=http://users:8080
 
   inventory:
     build:
@@ -134,6 +135,22 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/ecommerce
       - SPRING_DATASOURCE_USERNAME=admin
       - SPRING_DATASOURCE_PASSWORD=adminpassword
+
+  users:
+    build:
+      context: ./users
+      dockerfile: Dockerfile
+    container_name: users
+    ports:
+      - "8087:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/ecommerce
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=adminpassword
+      - JWT_SECRET=${JWT_SECRET:-my-super-secret-jwt-key-that-should-be-at-least-256-bits-long-for-hs256}
 
 volumes:
   postgres_data:

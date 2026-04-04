@@ -50,6 +50,11 @@ spring:
           predicates:
             - Path=/api/v1/deliveries/**
 
+        - id: users-service
+          uri: ${USERS_SERVICE_URL:http://localhost:8087}
+          predicates:
+            - Path=/api/v1/auth/**
+
       default-filters:
         - name: Cors
           args:
@@ -73,6 +78,7 @@ app:
     secret: ${JWT_SECRET:my-super-secret-jwt-key-that-should-be-at-least-256-bits-long-for-hs256}
     public-paths:
       - /api/v1/products/**
+      - /api/v1/auth/**
       - /actuator/**
   saga:
     recovery:
