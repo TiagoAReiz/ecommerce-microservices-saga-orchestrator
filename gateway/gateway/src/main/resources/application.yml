@@ -7,46 +7,46 @@ spring:
 
   # R2DBC PostgreSQL for Saga State Persistence
   r2dbc:
-    url: r2dbc:postgresql://localhost:5432/gateway_db
-    username: postgres
-    password: postgres
+    url: ${SPRING_R2DBC_URL:r2dbc:postgresql://localhost:5432/ecommerce}
+    username: ${SPRING_R2DBC_USERNAME:admin}
+    password: ${SPRING_R2DBC_PASSWORD:adminpassword}
 
   flyway:
     enabled: true
-    url: jdbc:postgresql://localhost:5432/gateway_db
-    user: postgres
-    password: postgres
+    url: ${SPRING_FLYWAY_URL:jdbc:postgresql://localhost:5432/ecommerce}
+    user: ${SPRING_FLYWAY_USER:admin}
+    password: ${SPRING_FLYWAY_PASSWORD:adminpassword}
 
   cloud:
     gateway:
       routes:
         - id: products-service
-          uri: http://localhost:8081
+          uri: ${PRODUCTS_SERVICE_URL:http://localhost:8086}
           predicates:
             - Path=/api/v1/products/**
 
         - id: inventory-service
-          uri: http://localhost:8082
+          uri: ${INVENTORY_SERVICE_URL:http://localhost:8083}
           predicates:
             - Path=/api/v1/inventory/**
 
         - id: cart-service
-          uri: http://localhost:8083
+          uri: ${CART_SERVICE_URL:http://localhost:8081}
           predicates:
             - Path=/api/v1/carts/**
 
         - id: order-service
-          uri: http://localhost:8084
+          uri: ${ORDER_SERVICE_URL:http://localhost:8084}
           predicates:
             - Path=/api/v1/orders/**
 
         - id: payment-service
-          uri: http://localhost:8085
+          uri: ${PAYMENT_SERVICE_URL:http://localhost:8085}
           predicates:
             - Path=/api/v1/payments/**
 
         - id: delivery-service
-          uri: http://localhost:8086
+          uri: ${DELIVERY_SERVICE_URL:http://localhost:8082}
           predicates:
             - Path=/api/v1/deliveries/**
 
@@ -60,17 +60,17 @@ spring:
 # Microservice base URLs for WebClient orchestration calls
 app:
   services:
-    products-url: http://localhost:8081
-    inventory-url: http://localhost:8082
-    cart-url: http://localhost:8083
-    order-url: http://localhost:8084
-    payment-url: http://localhost:8085
-    delivery-url: http://localhost:8086
+    products-url: ${PRODUCTS_SERVICE_URL:http://localhost:8086}
+    inventory-url: ${INVENTORY_SERVICE_URL:http://localhost:8083}
+    cart-url: ${CART_SERVICE_URL:http://localhost:8081}
+    order-url: ${ORDER_SERVICE_URL:http://localhost:8084}
+    payment-url: ${PAYMENT_SERVICE_URL:http://localhost:8085}
+    delivery-url: ${DELIVERY_SERVICE_URL:http://localhost:8082}
   webclient:
     connect-timeout-ms: 5000
     read-timeout-ms: 5000
   jwt:
-    secret: my-super-secret-jwt-key-that-should-be-at-least-256-bits-long-for-hs256
+    secret: ${JWT_SECRET:my-super-secret-jwt-key-that-should-be-at-least-256-bits-long-for-hs256}
     public-paths:
       - /api/v1/products/**
       - /actuator/**

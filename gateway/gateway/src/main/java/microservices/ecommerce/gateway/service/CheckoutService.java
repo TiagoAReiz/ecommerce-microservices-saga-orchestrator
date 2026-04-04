@@ -102,7 +102,7 @@ public class CheckoutService {
                                                     .flatMap(s -> {
                                                         // Step 4: Process Payment
                                                         return sagaCoordinator.updateStep(saga, "PROCESS_PAYMENT")
-                                                                .flatMap(s2 -> processPayment(order))
+                                                                .flatMap(s2 -> processPayment(order, request.currency(), request.paymentMethod()))
                                                                 .flatMap(payment -> {
                                                                     log.info("Saga [{}] id={} - Payment processed: {}",
                                                                             SAGA_TYPE, saga.getId(), payment.transactionReference());
@@ -198,10 +198,10 @@ public class CheckoutService {
                 .bodyToMono(OrderResponse.class);
     }
 
-    private Mono<PaymentResponse> processPayment(OrderResponse order) {
+    private Mono<PaymentResponse> processPayment(OrderResponse order, String currency, String paymentMethod) {
         BigDecimal amount = order.totalAmount() != null ? order.totalAmount() : BigDecimal.ZERO;
         PaymentRequest paymentRequest = new PaymentRequest(
-                order.id(), amount, "BRL", "CREDIT_CARD"
+                order.id(), amount, currency, paymentMethod
         );
 
         return paymentWebClient.post()
