@@ -1,113 +1,134 @@
+# Local development stack. Credentials below are DEV-ONLY defaults; override them via a .env file
+# (see .env.example) - never reuse them outside your machine.
+x-db-credentials: &db-credentials
+  SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-admin}
+  SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-adminpassword}
+
+x-depends-on-postgres: &depends-on-postgres
+  postgres:
+    condition: service_healthy
+
 services:
   postgres:
     image: postgres:15-alpine
     container_name: postgres
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: adminpassword
-      POSTGRES_DB: ecommerce
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-adminpassword}
+      POSTGRES_DB: postgres
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init-databases.sql:/docker-entrypoint-initdb.d/01-init-databases.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   cart:
     build:
       context: ./cart
-      dockerfile: Dockerfile
     container_name: cart
     ports:
       - "8081:8080"
-    depends_on:
-      - postgres
+    depends_on: *depends-on-postgres
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/ecommerce
-      - SPRING_DATASOURCE_USERNAME=admin
-      - SPRING_DATASOURCE_PASSWORD=adminpassword
+      <<: *db-credentials
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cart_db
 
   delivery:
     build:
       context: ./delivery/delivery
-      dockerfile: Dockerfile
     container_name: delivery
     ports:
       - "8082:8080"
-    depends_on:
-      - postgres
+    depends_on: *depends-on-postgres
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/ecommerce
-      - SPRING_DATASOURCE_USERNAME=admin
-      - SPRING_DATASOURCE_PASSWORD=adminpassword
-
-  gateway:
-    build:
-      context: ./gateway/gateway
-      dockerfile: Dockerfile
-    container_name: gateway
-    ports:
-      - "8080:8080"
-    depends_on:
-      - postgres
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/ecommerce
-      - SPRING_DATASOURCE_USERNAME=admin
-      - SPRING_DATASOURCE_PASSWORD=adminpassword
+      <<: *db-credentials
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/delivery_db
 
   inventory:
     build:
       context: ./inventory/inventory
-      dockerfile: Dockerfile
     container_name: inventory
     ports:
       - "8083:8080"
-    depends_on:
-      - postgres
+    depends_on: *depends-on-postgres
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/ecommerce
-      - SPRING_DATASOURCE_USERNAME=admin
-      - SPRING_DATASOURCE_PASSWORD=adminpassword
+      <<: *db-credentials
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/inventory_db
 
   order:
     build:
       context: ./order/order
-      dockerfile: Dockerfile
     container_name: order
     ports:
       - "8084:8080"
-    depends_on:
-      - postgres
+    depends_on: *depends-on-postgres
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/ecommerce
-      - SPRING_DATASOURCE_USERNAME=admin
-      - SPRING_DATASOURCE_PASSWORD=adminpassword
+      <<: *db-credentials
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/order_db
 
   payment:
     build:
       context: ./payment/payment
-      dockerfile: Dockerfile
     container_name: payment
     ports:
       - "8085:8080"
-    depends_on:
-      - postgres
+    depends_on: *depends-on-postgres
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/ecommerce
-      - SPRING_DATASOURCE_USERNAME=admin
-      - SPRING_DATASOURCE_PASSWORD=adminpassword
+      <<: *db-credentials
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/payment_db
 
   products:
     build:
       context: ./products/products
-      dockerfile: Dockerfile
     container_name: products
     ports:
       - "8086:8080"
-    depends_on:
-      - postgres
+    depends_on: *depends-on-postgres
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/ecommerce
-      - SPRING_DATASOURCE_USERNAME=admin
-      - SPRING_DATASOURCE_PASSWORD=adminpassword
+      <<: *db-credentials
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/products_db
+
+  gateway:
+    build:
+      context: ./gateway/gateway
+    container_name: gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      cart:
+        condition: service_started
+      delivery:
+        condition: service_started
+      inventory:
+        condition: service_started
+      order:
+        condition: service_started
+      payment:
+        condition: service_started
+      products:
+        condition: service_started
+    environment:
+      # Saga state store (R2DBC at runtime, JDBC for Flyway migrations)
+      SPRING_R2DBC_URL: r2dbc:postgresql://postgres:5432/gateway_db
+      SPRING_FLYWAY_URL: jdbc:postgresql://postgres:5432/gateway_db
+      DB_USERNAME: ${POSTGRES_USER:-admin}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-adminpassword}
+      # DEV-ONLY fallback so `docker compose up` works out of the box. Set JWT_SECRET in .env for anything else.
+      JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-jwt-secret-change-me-0123456789}
+      # Downstream services on the compose network
+      PRODUCTS_SERVICE_URL: http://products:8080
+      INVENTORY_SERVICE_URL: http://inventory:8080
+      CART_SERVICE_URL: http://cart:8080
+      ORDER_SERVICE_URL: http://order:8080
+      PAYMENT_SERVICE_URL: http://payment:8080
+      DELIVERY_SERVICE_URL: http://delivery:8080
 
 volumes:
   postgres_data:
