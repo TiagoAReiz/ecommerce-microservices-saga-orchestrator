@@ -50,10 +50,6 @@ jobs:
       SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/ci_db
       SPRING_DATASOURCE_USERNAME: admin
       SPRING_DATASOURCE_PASSWORD: adminpassword
-      SPRING_R2DBC_URL: r2dbc:postgresql://localhost:5432/ci_db
-      SPRING_FLYWAY_URL: jdbc:postgresql://localhost:5432/ci_db
-      DB_USERNAME: admin
-      DB_PASSWORD: adminpassword
 
     defaults:
       run:
@@ -70,4 +66,11 @@ jobs:
           cache-dependency-path: ${{ matrix.service.path }}/pom.xml
 
       - name: Maven test
-        run: mvn -B -ntp verify
+        run: |
+          if [ "${{ matrix.service.name }}" = "gateway" ]; then
+            # gateway uses R2DBC at runtime and a dedicated JDBC URL for Flyway
+            export SPRING_R2DBC_URL=r2dbc:postgresql://localhost:5432/ci_db
+            export SPRING_FLYWAY_URL=jdbc:postgresql://localhost:5432/ci_db
+            export DB_USERNAME=admin DB_PASSWORD=adminpassword
+          fi
+          mvn -B -ntp verify
