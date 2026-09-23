@@ -1,8 +1,7 @@
 package microservices.ecommerce.gateway.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import microservices.ecommerce.gateway.dto.delivery.DeliveryResponse;
 import microservices.ecommerce.gateway.dto.inventory.InventoryResponse;
 import microservices.ecommerce.gateway.dto.order.OrderItemResponse;
@@ -17,7 +16,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.codec.json.Jackson2JsonDecoder;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -34,6 +34,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+// Saga coordinator stubs are shared across scenarios in setUp(); not every scenario reaches every step.
+@MockitoSettings(strictness = Strictness.LENIENT)
 class OrderCancellationServiceTest {
 
     private MockWebServer mockWebServer;
@@ -50,15 +52,12 @@ class OrderCancellationServiceTest {
         mockWebServer = new MockWebServer();
         mockWebServer.start();
 
-        objectMapper = new ObjectMapper()
-                .registerModule(new JavaTimeModule())
-                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        // Jackson 3 supports java.time out of the box and writes ISO-8601 dates by default
+        objectMapper = JsonMapper.builder().build();
 
         String baseUrl = mockWebServer.url("/").toString();
         WebClient client = WebClient.builder()
                 .baseUrl(baseUrl)
-                .codecs(c -> c.defaultCodecs()
-                        .jackson2JsonDecoder(new Jackson2JsonDecoder(objectMapper)))
                 .build();
 
         saga = SagaState.builder()
@@ -108,7 +107,7 @@ class OrderCancellationServiceTest {
         StepVerifier.create(cancellationService.cancelOrder(orderId))
                 .assertNext(response -> {
                     assertThat(response.orderId()).isEqualTo(orderId);
-                    assertThat(response.status()).isEqualTo("CANCELLED");
+                    assertThat(response.orderStatus()).isEqualTo("CANCELLED");
                 })
                 .verifyComplete();
 
@@ -160,7 +159,7 @@ class OrderCancellationServiceTest {
         mockWebServer.enqueue(new MockResponse().setResponseCode(404)); // no delivery found
 
         StepVerifier.create(cancellationService.cancelOrder(orderId))
-                .assertNext(response -> assertThat(response.status()).isEqualTo("CANCELLED"))
+                .assertNext(response -> assertThat(response.orderStatus()).isEqualTo("CANCELLED"))
                 .verifyComplete();
     }
 

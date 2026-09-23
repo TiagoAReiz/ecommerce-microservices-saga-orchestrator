@@ -1,15 +1,16 @@
 package microservices.ecommerce.order.infrastructure.adapters.in.controllers;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import microservices.ecommerce.order.application.mappers.OrderMapper;
 import microservices.ecommerce.order.application.ports.in.usecases.OrderUseCase;
 import microservices.ecommerce.order.core.entities.Order;
 import microservices.ecommerce.order.infrastructure.adapters.in.controllers.dtos.OrderItemResponse;
+import microservices.ecommerce.order.infrastructure.adapters.in.controllers.dtos.OrderItemRequest;
 import microservices.ecommerce.order.infrastructure.adapters.in.controllers.dtos.OrderRequest;
 import microservices.ecommerce.order.infrastructure.adapters.in.controllers.dtos.OrderResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -46,7 +47,8 @@ class OrderControllerTest {
         UUID orderId = UUID.randomUUID();
         UUID addressId = UUID.randomUUID();
 
-        OrderRequest request = new OrderRequest(userId, addressId, List.of());
+        OrderRequest request = new OrderRequest(userId, addressId,
+                List.of(new OrderItemRequest(UUID.randomUUID(), 2)));
         Order order = buildOrder(orderId, userId, "CREATED");
         OrderResponse response = buildOrderResponse(orderId, userId, "CREATED");
 

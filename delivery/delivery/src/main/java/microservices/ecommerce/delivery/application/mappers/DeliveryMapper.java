@@ -4,6 +4,9 @@ import microservices.ecommerce.delivery.core.entities.Delivery;
 import microservices.ecommerce.delivery.infrastructure.adapters.out.entities.DeliveryEntity;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
 @Component
 public class DeliveryMapper {
 
@@ -16,8 +19,8 @@ public class DeliveryMapper {
                 .carrier(domain.getCarrier())
                 .trackingCode(domain.getTrackingCode())
                 .status(domain.getStatus())
-                .estimatedDeliveryDate(domain.getEstimatedDeliveryDate())
-                .actualDeliveryDate(domain.getActualDeliveryDate())
+                .estimatedDeliveryDate(toDate(domain.getEstimatedDeliveryDate()))
+                .actualDeliveryDate(toDate(domain.getActualDeliveryDate()))
                 .createdAt(domain.getCreatedAt())
                 .updatedAt(domain.getUpdatedAt())
                 .build();
@@ -32,8 +35,8 @@ public class DeliveryMapper {
                 entity.getCarrier(),
                 entity.getTrackingCode(),
                 entity.getStatus(),
-                entity.getEstimatedDeliveryDate(),
-                entity.getActualDeliveryDate(),
+                toDateTime(entity.getEstimatedDeliveryDate()),
+                toDateTime(entity.getActualDeliveryDate()),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt());
     }
@@ -52,5 +55,14 @@ public class DeliveryMapper {
                 domain.getActualDeliveryDate(),
                 domain.getCreatedAt(),
                 domain.getUpdatedAt());
+    }
+
+    // Delivery dates are persisted as DATE columns; the domain/API work with LocalDateTime.
+    private static LocalDate toDate(LocalDateTime dateTime) {
+        return dateTime == null ? null : dateTime.toLocalDate();
+    }
+
+    private static LocalDateTime toDateTime(LocalDate date) {
+        return date == null ? null : date.atStartOfDay();
     }
 }

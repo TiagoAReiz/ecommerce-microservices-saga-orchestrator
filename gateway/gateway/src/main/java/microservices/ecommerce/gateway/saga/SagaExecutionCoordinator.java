@@ -28,12 +28,19 @@ public class SagaExecutionCoordinator {
                 .currentStep("INITIATED")
                 .status(SagaState.STATUS_STARTED)
                 .userId(userId)
+                .newEntity(true)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
 
         log.info("Starting saga [{}] id={} for user={}", sagaType, state.getId(), userId);
-        return repository.save(state);
+        return repository.save(state)
+                .map(saved -> {
+                    // Subsequent saves of this saga must be UPDATEs
+                    state.setNewEntity(false);
+                    saved.setNewEntity(false);
+                    return saved;
+                });
     }
 
     public Mono<SagaState> updateStep(SagaState state, String step) {

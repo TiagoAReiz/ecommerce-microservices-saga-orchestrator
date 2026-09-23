@@ -1,7 +1,7 @@
 package microservices.ecommerce.gateway.saga;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import microservices.ecommerce.gateway.dto.cart.CartItemResponse;
 import microservices.ecommerce.gateway.dto.inventory.InventoryRequest;
 import microservices.ecommerce.gateway.dto.inventory.InventoryResponse;

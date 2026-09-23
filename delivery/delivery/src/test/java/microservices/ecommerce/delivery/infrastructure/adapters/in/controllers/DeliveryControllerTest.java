@@ -1,8 +1,6 @@
 package microservices.ecommerce.delivery.infrastructure.adapters.in.controllers;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.databind.ObjectMapper;
 import microservices.ecommerce.delivery.application.mappers.DeliveryMapper;
 import microservices.ecommerce.delivery.application.ports.in.usecases.DeliveryUseCase;
 import microservices.ecommerce.delivery.core.entities.Delivery;
@@ -10,7 +8,7 @@ import microservices.ecommerce.delivery.infrastructure.adapters.in.controllers.d
 import microservices.ecommerce.delivery.infrastructure.adapters.in.controllers.dtos.DeliveryResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -50,16 +48,12 @@ class DeliveryControllerTest {
         when(deliveryUseCase.scheduleDelivery(any())).thenReturn(delivery);
         when(deliveryMapper.toResponse(delivery)).thenReturn(response);
 
-        ObjectMapper mapper = new ObjectMapper()
-                .registerModule(new JavaTimeModule())
-                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-
         DeliveryRequest request = new DeliveryRequest(orderId, "DHL", "TRK-001",
                 LocalDateTime.now().plusDays(7));
 
         mockMvc.perform(post("/api/v1/deliveries")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(mapper.writeValueAsString(request)))
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(deliveryId.toString()))
                 .andExpect(jsonPath("$.status").value("PREPARING"));

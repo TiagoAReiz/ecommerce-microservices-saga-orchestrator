@@ -1,6 +1,6 @@
 package microservices.ecommerce.cart.infrastructure.adapters.in.controllers;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import microservices.ecommerce.cart.application.mappers.CartMapper;
 import microservices.ecommerce.cart.application.ports.in.usecases.CartUseCase;
 import microservices.ecommerce.cart.core.entities.Cart;
@@ -9,7 +9,7 @@ import microservices.ecommerce.cart.infrastructure.adapters.in.controllers.dtos.
 import microservices.ecommerce.cart.infrastructure.adapters.in.controllers.dtos.CartResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;

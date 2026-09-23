@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 
@@ -70,7 +71,7 @@ public class SagaRecoveryJob {
                     saga.setRetryCount(saga.getRetryCount() + 1);
                     return sagaCoordinator.startCompensation(saga)
                             .flatMap(s -> compensationRouter.compensate(s)
-                                    .then(sagaCoordinator.completeCompensation(s))
+                                    .then(Mono.defer(() -> sagaCoordinator.completeCompensation(s)))
                                     .onErrorResume(e -> {
                                         log.error("SagaRecoveryJob: compensation failed for saga id={}: {}",
                                                 s.getId(), e.getMessage());

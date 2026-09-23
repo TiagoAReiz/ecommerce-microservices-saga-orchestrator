@@ -1,6 +1,6 @@
 package microservices.ecommerce.inventory.infrastructure.adapters.in.controllers;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import microservices.ecommerce.inventory.application.mappers.InventoryMapper;
 import microservices.ecommerce.inventory.application.ports.in.usecases.InventoryUseCase;
 import microservices.ecommerce.inventory.core.entities.Inventory;
@@ -8,7 +8,7 @@ import microservices.ecommerce.inventory.infrastructure.adapters.in.controllers.
 import microservices.ecommerce.inventory.infrastructure.adapters.in.controllers.dtos.InventoryResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -106,7 +107,7 @@ class InventoryControllerTest {
     @Test
     void reserveStock_serviceThrows_returns500() throws Exception {
         UUID productId = UUID.randomUUID();
-        when(inventoryUseCase.reserveStock(any(), any()))
+        when(inventoryUseCase.reserveStock(any(), anyInt()))
                 .thenThrow(new RuntimeException("Insufficient stock"));
 
         InventoryRequest request = new InventoryRequest(productId, 0, 999);

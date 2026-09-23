@@ -1,6 +1,5 @@
 package microservices.ecommerce.delivery.core.entities;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -11,8 +10,8 @@ public class Delivery {
     private String carrier;
     private String trackingCode;
     private String status;
-    private LocalDate estimatedDeliveryDate;
-    private LocalDate actualDeliveryDate;
+    private LocalDateTime estimatedDeliveryDate;
+    private LocalDateTime actualDeliveryDate;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -20,7 +19,7 @@ public class Delivery {
     }
 
     public Delivery(UUID id, UUID orderId, String carrier, String trackingCode, String status,
-            LocalDate estimatedDeliveryDate, LocalDate actualDeliveryDate, LocalDateTime createdAt,
+            LocalDateTime estimatedDeliveryDate, LocalDateTime actualDeliveryDate, LocalDateTime createdAt,
             LocalDateTime updatedAt) {
         this.id = id;
         this.orderId = orderId;
@@ -73,19 +72,19 @@ public class Delivery {
         this.status = status;
     }
 
-    public LocalDate getEstimatedDeliveryDate() {
+    public LocalDateTime getEstimatedDeliveryDate() {
         return estimatedDeliveryDate;
     }
 
-    public void setEstimatedDeliveryDate(LocalDate estimatedDeliveryDate) {
+    public void setEstimatedDeliveryDate(LocalDateTime estimatedDeliveryDate) {
         this.estimatedDeliveryDate = estimatedDeliveryDate;
     }
 
-    public LocalDate getActualDeliveryDate() {
+    public LocalDateTime getActualDeliveryDate() {
         return actualDeliveryDate;
     }
 
-    public void setActualDeliveryDate(LocalDate actualDeliveryDate) {
+    public void setActualDeliveryDate(LocalDateTime actualDeliveryDate) {
         this.actualDeliveryDate = actualDeliveryDate;
     }
 
