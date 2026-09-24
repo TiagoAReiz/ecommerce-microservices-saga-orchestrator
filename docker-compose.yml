@@ -4,6 +4,10 @@ x-db-credentials: &db-credentials
   SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-admin}
   SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-adminpassword}
 
+# DEV-ONLY fallback so `docker compose up` works out of the box. Set JWT_SECRET in .env for anything else.
+# users signs tokens with it and the gateway validates them, so both services receive this same value.
+x-jwt-secret: &jwt-secret ${JWT_SECRET:-dev-only-insecure-jwt-secret-change-me-0123456789}
+
 x-depends-on-postgres: &depends-on-postgres
   postgres:
     condition: service_healthy
@@ -93,6 +97,19 @@ services:
       <<: *db-credentials
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/products_db
 
+  users:
+    build:
+      context: ./users
+    container_name: users
+    ports:
+      - "8087:8080"
+    depends_on: *depends-on-postgres
+    environment:
+      <<: *db-credentials
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/users_db
+      # Signs the tokens the gateway validates, so it must get the same secret (see x-jwt-secret)
+      JWT_SECRET: *jwt-secret
+
   gateway:
     build:
       context: ./gateway/gateway
@@ -114,14 +131,15 @@ services:
         condition: service_started
       products:
         condition: service_started
+      users:
+        condition: service_started
     environment:
       # Saga state store (R2DBC at runtime, JDBC for Flyway migrations)
       SPRING_R2DBC_URL: r2dbc:postgresql://postgres:5432/gateway_db
       SPRING_FLYWAY_URL: jdbc:postgresql://postgres:5432/gateway_db
       DB_USERNAME: ${POSTGRES_USER:-admin}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-adminpassword}
-      # DEV-ONLY fallback so `docker compose up` works out of the box. Set JWT_SECRET in .env for anything else.
-      JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-jwt-secret-change-me-0123456789}
+      JWT_SECRET: *jwt-secret
       # Downstream services on the compose network
       PRODUCTS_SERVICE_URL: http://products:8080
       INVENTORY_SERVICE_URL: http://inventory:8080
@@ -129,6 +147,7 @@ services:
       ORDER_SERVICE_URL: http://order:8080
       PAYMENT_SERVICE_URL: http://payment:8080
       DELIVERY_SERVICE_URL: http://delivery:8080
+      USERS_SERVICE_URL: http://users:8080
 
 volumes:
   postgres_data:
