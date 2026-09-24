@@ -21,4 +21,11 @@ public class GlobalExceptionHandler {
                         (a, b) -> a));
         return Map.of("status", 400, "error", "Validation failed", "fields", fieldErrors);
     }
+
+    // Fallback: unexpected/business errors surface as a structured 500 instead of a raw stack trace.
+    @ExceptionHandler(RuntimeException.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    public Map<String, Object> handleRuntime(RuntimeException ex) {
+        return Map.of("status", 500, "error", String.valueOf(ex.getMessage()));
+    }
 }

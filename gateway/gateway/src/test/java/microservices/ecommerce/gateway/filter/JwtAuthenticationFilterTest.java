@@ -5,7 +5,7 @@ import io.jsonwebtoken.security.Keys;
 import microservices.ecommerce.gateway.util.JwtUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.cloud.gateway.filter.GatewayFilterChain;
+import org.springframework.web.server.WebFilterChain;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
@@ -30,7 +30,7 @@ class JwtAuthenticationFilterTest {
     private static final SecretKey KEY = Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
 
     private JwtAuthenticationFilter filter;
-    private GatewayFilterChain chain;
+    private WebFilterChain chain;
 
     @BeforeEach
     void setUp() {
@@ -38,7 +38,7 @@ class JwtAuthenticationFilterTest {
         List<String> publicPaths = List.of("/api/v1/products/**", "/actuator/**");
         filter = new JwtAuthenticationFilter(jwtUtil, publicPaths);
 
-        chain = mock(GatewayFilterChain.class);
+        chain = mock(WebFilterChain.class);
         when(chain.filter(any())).thenReturn(Mono.empty());
     }
 

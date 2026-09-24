@@ -1,7 +1,7 @@
 package microservices.ecommerce.gateway.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import microservices.ecommerce.gateway.dto.cart.CartItemResponse;
 import microservices.ecommerce.gateway.dto.cart.CartResponse;
 import microservices.ecommerce.gateway.dto.checkout.CheckoutRequest;
@@ -102,7 +102,7 @@ public class CheckoutService {
                                                     .flatMap(s -> {
                                                         // Step 4: Process Payment
                                                         return sagaCoordinator.updateStep(saga, "PROCESS_PAYMENT")
-                                                                .flatMap(s2 -> processPayment(order))
+                                                                .flatMap(s2 -> processPayment(order, cartItems, request))
                                                                 .flatMap(payment -> {
                                                                     log.info("Saga [{}] id={} - Payment processed: {}",
                                                                             SAGA_TYPE, saga.getId(), payment.transactionReference());
@@ -117,7 +117,7 @@ public class CheckoutService {
                                                                                 // Step 6: Checkout cart (mark as COMPLETED)
                                                                                 return sagaCoordinator.updateStep(saga, "CHECKOUT_CART")
                                                                                         .flatMap(s2 -> checkoutCart(request.userId()))
-                                                                                        .flatMap(v -> sagaCoordinator.completeSaga(saga))
+                                                                                        .then(Mono.defer(() -> sagaCoordinator.completeSaga(saga)))
                                                                                         .thenReturn(new CheckoutResponse(
                                                                                                 order.id(),
                                                                                                 order.status(),
@@ -174,7 +174,8 @@ public class CheckoutService {
         return Flux.fromIterable(items)
                 .flatMap(item -> inventoryWebClient.post()
                         .uri("/api/v1/inventory/reserve")
-                        .bodyValue(new InventoryRequest(item.productId(), item.quantity(), 0))
+                        // Inventory API contract: the amount to reserve travels in quantityReserved
+                        .bodyValue(new InventoryRequest(item.productId(), 0, item.quantity()))
                         .retrieve()
                         .bodyToMono(InventoryResponse.class))
                 .collectList();
@@ -198,10 +199,15 @@ public class CheckoutService {
                 .bodyToMono(OrderResponse.class);
     }
 
-    private Mono<PaymentResponse> processPayment(OrderResponse order) {
-        BigDecimal amount = order.totalAmount() != null ? order.totalAmount() : BigDecimal.ZERO;
+    private Mono<PaymentResponse> processPayment(OrderResponse order, List<CartItemResponse> cartItems,
+                                                 CheckoutRequest request) {
+        // The order service does not price items yet (totalAmount may be 0), so fall back to the
+        // cart snapshot: priceAtAddition is the price the customer saw when adding the item.
+        BigDecimal amount = order.totalAmount() != null && order.totalAmount().signum() > 0
+                ? order.totalAmount()
+                : cartTotal(cartItems);
         PaymentRequest paymentRequest = new PaymentRequest(
-                order.id(), amount, "BRL", "CREDIT_CARD"
+                order.id(), amount, request.currency(), request.paymentMethod()
         );
 
         return paymentWebClient.post()
@@ -235,10 +241,18 @@ public class CheckoutService {
 
     // --- Helpers ---
 
+    private static BigDecimal cartTotal(List<CartItemResponse> items) {
+        return items.stream()
+                .filter(i -> i.priceAtAddition() != null)
+                .map(i -> i.priceAtAddition().multiply(BigDecimal.valueOf(i.quantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+
     private String serializeCartItems(List<CartItemResponse> items) {
         try {
             return objectMapper.writeValueAsString(items);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             log.warn("Failed to serialize cartItems to payload: {}", e.getMessage());
             return "[]";
         }
@@ -255,14 +269,14 @@ public class CheckoutService {
                             return Mono.empty();
                         }))
                 .then(releaseAllInventory(items))
-                .then(sagaCoordinator.completeCompensation(saga))
+                .then(Mono.defer(() -> sagaCoordinator.completeCompensation(saga)))
                 .then();
     }
 
     private Mono<Void> compensateOrderFailure(SagaState saga, List<CartItemResponse> items) {
         return sagaCoordinator.startCompensation(saga)
                 .then(releaseAllInventory(items))
-                .then(sagaCoordinator.completeCompensation(saga))
+                .then(Mono.defer(() -> sagaCoordinator.completeCompensation(saga)))
                 .then();
     }
 

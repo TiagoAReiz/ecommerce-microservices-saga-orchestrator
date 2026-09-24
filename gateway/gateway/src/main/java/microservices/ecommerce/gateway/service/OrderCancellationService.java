@@ -90,7 +90,7 @@ public class OrderCancellationService {
                                                         // Step 5: Cancel delivery (if exists)
                                                         return sagaCoordinator.updateStep(saga, "CANCEL_DELIVERY")
                                                                 .flatMap(s -> cancelDelivery(orderId))
-                                                                .then(sagaCoordinator.completeSaga(saga))
+                                                                .then(Mono.defer(() -> sagaCoordinator.completeSaga(saga)))
                                                                 .thenReturn(new CancellationResponse(
                                                                         orderId,
                                                                         "CANCELLED",

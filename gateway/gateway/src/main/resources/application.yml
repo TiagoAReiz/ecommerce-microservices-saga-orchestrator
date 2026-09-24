@@ -5,75 +5,80 @@ spring:
   application:
     name: gateway-service
 
-  # R2DBC PostgreSQL for Saga State Persistence
+  # R2DBC PostgreSQL for Saga State Persistence (reactive runtime connection)
   r2dbc:
-    url: r2dbc:postgresql://localhost:5432/gateway_db
-    username: postgres
-    password: postgres
+    url: ${SPRING_R2DBC_URL:r2dbc:postgresql://localhost:5432/gateway_db}
+    username: ${DB_USERNAME:admin}
+    password: ${DB_PASSWORD:adminpassword}
 
+  # Flyway runs over JDBC (it does not support R2DBC)
   flyway:
     enabled: true
-    url: jdbc:postgresql://localhost:5432/gateway_db
-    user: postgres
-    password: postgres
+    url: ${SPRING_FLYWAY_URL:jdbc:postgresql://localhost:5432/gateway_db}
+    user: ${DB_USERNAME:admin}
+    password: ${DB_PASSWORD:adminpassword}
 
   cloud:
     gateway:
-      routes:
-        - id: products-service
-          uri: http://localhost:8081
-          predicates:
-            - Path=/api/v1/products/**
+      server:
+        webflux:
+          # Simple CRUD passthrough routes. Defaults match the host ports published by docker-compose.
+          routes:
+            - id: products-service
+              uri: ${PRODUCTS_SERVICE_URL:http://localhost:8086}
+              predicates:
+                - Path=/api/v1/products/**
 
-        - id: inventory-service
-          uri: http://localhost:8082
-          predicates:
-            - Path=/api/v1/inventory/**
+            - id: inventory-service
+              uri: ${INVENTORY_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/v1/inventory/**
 
-        - id: cart-service
-          uri: http://localhost:8083
-          predicates:
-            - Path=/api/v1/carts/**
+            - id: cart-service
+              uri: ${CART_SERVICE_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/v1/carts/**
 
-        - id: order-service
-          uri: http://localhost:8084
-          predicates:
-            - Path=/api/v1/orders/**
+            - id: order-service
+              uri: ${ORDER_SERVICE_URL:http://localhost:8084}
+              predicates:
+                - Path=/api/v1/orders/**
 
-        - id: payment-service
-          uri: http://localhost:8085
-          predicates:
-            - Path=/api/v1/payments/**
+            - id: payment-service
+              uri: ${PAYMENT_SERVICE_URL:http://localhost:8085}
+              predicates:
+                - Path=/api/v1/payments/**
 
-        - id: delivery-service
-          uri: http://localhost:8086
-          predicates:
-            - Path=/api/v1/deliveries/**
+            - id: delivery-service
+              uri: ${DELIVERY_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/v1/deliveries/**
 
-      default-filters:
-        - name: Cors
-          args:
-            allowedOrigins: "*"
-            allowedMethods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-            allowedHeaders: "*"
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowedOrigins: "*"
+                allowedMethods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+                allowedHeaders: "*"
 
 # Microservice base URLs for WebClient orchestration calls
 app:
   services:
-    products-url: http://localhost:8081
-    inventory-url: http://localhost:8082
-    cart-url: http://localhost:8083
-    order-url: http://localhost:8084
-    payment-url: http://localhost:8085
-    delivery-url: http://localhost:8086
+    products-url: ${PRODUCTS_SERVICE_URL:http://localhost:8086}
+    inventory-url: ${INVENTORY_SERVICE_URL:http://localhost:8083}
+    cart-url: ${CART_SERVICE_URL:http://localhost:8081}
+    order-url: ${ORDER_SERVICE_URL:http://localhost:8084}
+    payment-url: ${PAYMENT_SERVICE_URL:http://localhost:8085}
+    delivery-url: ${DELIVERY_SERVICE_URL:http://localhost:8082}
   webclient:
     connect-timeout-ms: 5000
     read-timeout-ms: 5000
   jwt:
-    secret: my-super-secret-jwt-key-that-should-be-at-least-256-bits-long-for-hs256
-    public-paths:
-      - /api/v1/products/**
-      - /actuator/**
+    # HS256 signing secret (>= 32 bytes). Required: there is intentionally no default here.
+    # docker-compose provides a dev-only value; see .env.example.
+    secret: ${JWT_SECRET}
+    # Comma-separated Ant patterns that skip JWT validation
+    public-paths: /api/v1/products/**,/actuator/**
   saga:
     recovery:
       stuck-threshold-minutes: 5

@@ -9,8 +9,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Column;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -23,7 +21,6 @@ import java.util.UUID;
 public class InventoryEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @Column(name = "product_id", nullable = false, unique = true)
