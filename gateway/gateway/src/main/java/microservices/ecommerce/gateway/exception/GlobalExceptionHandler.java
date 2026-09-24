@@ -48,11 +48,11 @@ public class GlobalExceptionHandler {
         ));
     }
 
-    @ExceptionHandler(ForbiddenResourceException.class)
-    public ResponseEntity<Map<String, Object>> handleForbidden(ForbiddenResourceException ex) {
-        log.warn("Forbidden: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
-                "error", "FORBIDDEN",
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNotFound(ResourceNotFoundException ex) {
+        log.warn("Not found: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                "error", "NOT_FOUND",
                 "message", ex.getMessage(),
                 "timestamp", LocalDateTime.now().toString()
         ));

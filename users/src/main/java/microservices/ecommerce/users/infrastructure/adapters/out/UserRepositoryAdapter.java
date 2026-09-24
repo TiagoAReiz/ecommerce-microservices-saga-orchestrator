@@ -7,6 +7,7 @@ import microservices.ecommerce.users.infrastructure.adapters.out.repositories.Us
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Component
 public class UserRepositoryAdapter implements UserRepository {
@@ -17,6 +18,11 @@ public class UserRepositoryAdapter implements UserRepository {
     public UserRepositoryAdapter(UserJpaRepository jpaRepository, UserEntityMapper mapper) {
         this.jpaRepository = jpaRepository;
         this.mapper = mapper;
+    }
+
+    @Override
+    public Optional<User> findById(UUID id) {
+        return jpaRepository.findById(id).map(mapper::toDomain);
     }
 
     @Override

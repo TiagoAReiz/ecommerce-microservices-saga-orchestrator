@@ -109,6 +109,11 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/users_db
       # Signs the tokens the gateway validates, so it must get the same secret (see x-jwt-secret)
       JWT_SECRET: *jwt-secret
+      # Access token 15 min / refresh token 7 days unless overridden in .env
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-900000}
+      JWT_REFRESH_EXPIRATION_MS: ${JWT_REFRESH_EXPIRATION_MS:-604800000}
+      # Comma-separated e-mails granted ADMIN; empty = no admin. Set it in .env (see README "Administradores").
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
 
   gateway:
     build:

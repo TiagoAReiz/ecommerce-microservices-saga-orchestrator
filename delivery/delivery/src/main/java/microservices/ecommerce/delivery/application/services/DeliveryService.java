@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import microservices.ecommerce.delivery.application.ports.in.usecases.DeliveryUseCase;
 import microservices.ecommerce.delivery.application.ports.out.repositories.DeliveryRepository;
 import microservices.ecommerce.delivery.core.entities.Delivery;
+import microservices.ecommerce.delivery.core.exceptions.ResourceNotFoundException;
 import microservices.ecommerce.delivery.infrastructure.adapters.in.controllers.dtos.DeliveryRequest;
 import org.springframework.stereotype.Service;
 
@@ -30,13 +31,15 @@ public class DeliveryService implements DeliveryUseCase {
                 LocalDateTime.now(),
                 LocalDateTime.now());
 
+        delivery.setUserId(deliveryRequest.userId());
+
         return deliveryRepository.save(delivery);
     }
 
     @Override
     public Delivery getDeliveryById(UUID id) {
         return deliveryRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Delivery not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Delivery not found with id: " + id));
     }
 
     @Override

@@ -7,7 +7,7 @@ import microservices.ecommerce.gateway.dto.inventory.InventoryResponse;
 import microservices.ecommerce.gateway.dto.order.OrderItemResponse;
 import microservices.ecommerce.gateway.dto.order.OrderResponse;
 import microservices.ecommerce.gateway.entity.SagaState;
-import microservices.ecommerce.gateway.exception.ForbiddenResourceException;
+import microservices.ecommerce.gateway.exception.ResourceNotFoundException;
 import microservices.ecommerce.gateway.saga.SagaExecutionCoordinator;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -118,7 +118,7 @@ class OrderCancellationServiceTest {
     }
 
     @Test
-    void cancelOrder_orderOfAnotherUser_failsWithForbiddenAndChangesNothing() throws Exception {
+    void cancelOrder_orderOfAnotherUser_failsWithNotFoundAndChangesNothing() throws Exception {
         UUID orderId = UUID.randomUUID();
         UUID owner = UUID.randomUUID();
         UUID attacker = UUID.randomUUID();
@@ -127,13 +127,45 @@ class OrderCancellationServiceTest {
         enqueue(order);
 
         StepVerifier.create(cancellationService.cancelOrder(orderId, attacker))
-                .expectError(ForbiddenResourceException.class)
+                .expectError(ResourceNotFoundException.class)
                 .verify();
 
         verify(sagaCoordinator).failSaga(any(), anyString());
         verify(sagaCoordinator, never()).completeSaga(any());
         // Only the GET of the order reached downstream: no status change, no inventory release, no refund
         assertThat(mockWebServer.getRequestCount()).isEqualTo(1);
+    }
+
+    @Test
+    void cancelOrder_unknownOrder_failsWithNotFound() {
+        mockWebServer.enqueue(new MockResponse().setResponseCode(404));
+
+        StepVerifier.create(cancellationService.cancelOrder(UUID.randomUUID(), UUID.randomUUID()))
+                .expectError(ResourceNotFoundException.class)
+                .verify();
+
+        verify(sagaCoordinator).failSaga(any(), anyString());
+        verify(sagaCoordinator, never()).completeSaga(any());
+    }
+
+    @Test
+    void cancelOrder_adminMayCancelAnotherUsersOrder() throws Exception {
+        UUID orderId = UUID.randomUUID();
+        UUID admin = UUID.randomUUID();
+        OrderResponse order = new OrderResponse(orderId, UUID.randomUUID(), "CREATED",
+                BigDecimal.TEN, UUID.randomUUID(), null, null, List.of());
+        OrderResponse cancelled = new OrderResponse(orderId, order.userId(), "CANCELLED",
+                BigDecimal.TEN, order.shippingAddressId(), null, null, List.of());
+        enqueue(order);
+        enqueue(cancelled);
+        mockWebServer.enqueue(new MockResponse().setResponseCode(404)); // no payment
+        mockWebServer.enqueue(new MockResponse().setResponseCode(404)); // no delivery
+
+        StepVerifier.create(cancellationService.cancelOrder(orderId, admin, true))
+                .assertNext(response -> assertThat(response.orderStatus()).isEqualTo("CANCELLED"))
+                .verifyComplete();
+
+        verify(sagaCoordinator).completeSaga(any());
     }
 
     @Test

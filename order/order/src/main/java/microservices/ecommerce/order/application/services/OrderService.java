@@ -5,6 +5,7 @@ import microservices.ecommerce.order.application.ports.in.usecases.OrderUseCase;
 import microservices.ecommerce.order.application.ports.out.repositories.OrderRepository;
 import microservices.ecommerce.order.core.entities.Order;
 import microservices.ecommerce.order.core.entities.OrderItem;
+import microservices.ecommerce.order.core.exceptions.ResourceNotFoundException;
 import microservices.ecommerce.order.infrastructure.adapters.in.controllers.dtos.OrderRequest;
 import org.springframework.stereotype.Service;
 
@@ -51,7 +52,7 @@ public class OrderService implements OrderUseCase {
     @Override
     public Order getOrderById(UUID id) {
         return orderRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Order not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + id));
     }
 
     @Override

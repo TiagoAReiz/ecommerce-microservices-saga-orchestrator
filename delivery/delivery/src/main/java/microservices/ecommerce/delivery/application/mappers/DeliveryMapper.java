@@ -21,6 +21,7 @@ public class DeliveryMapper {
                 .status(domain.getStatus())
                 .estimatedDeliveryDate(toDate(domain.getEstimatedDeliveryDate()))
                 .actualDeliveryDate(toDate(domain.getActualDeliveryDate()))
+                .userId(domain.getUserId())
                 .createdAt(domain.getCreatedAt())
                 .updatedAt(domain.getUpdatedAt())
                 .build();
@@ -29,7 +30,7 @@ public class DeliveryMapper {
     public Delivery toDomain(DeliveryEntity entity) {
         if (entity == null)
             return null;
-        return new Delivery(
+        Delivery domain = new Delivery(
                 entity.getId(),
                 entity.getOrderId(),
                 entity.getCarrier(),
@@ -39,6 +40,8 @@ public class DeliveryMapper {
                 toDateTime(entity.getActualDeliveryDate()),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt());
+        domain.setUserId(entity.getUserId());
+        return domain;
     }
 
     public microservices.ecommerce.delivery.infrastructure.adapters.in.controllers.dtos.DeliveryResponse toResponse(

@@ -7,6 +7,7 @@ import microservices.ecommerce.users.application.ports.in.usecases.LoginCommand;
 import microservices.ecommerce.users.application.ports.in.usecases.RegisterCommand;
 import microservices.ecommerce.users.infrastructure.adapters.in.controllers.dtos.AuthResponse;
 import microservices.ecommerce.users.infrastructure.adapters.in.controllers.dtos.LoginRequest;
+import microservices.ecommerce.users.infrastructure.adapters.in.controllers.dtos.RefreshTokenRequest;
 import microservices.ecommerce.users.infrastructure.adapters.in.controllers.dtos.RegisterRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -38,7 +39,24 @@ public class AuthController {
         return ResponseEntity.ok(toResponse(result));
     }
 
+    /** Rotates the refresh token: the presented one stops working, the response carries its successor. */
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        return ResponseEntity.ok(toResponse(authUseCase.refresh(request.refreshToken())));
+    }
+
+    /**
+     * Ends the session by revoking the refresh token's family. Always 204, also for unknown tokens, so the
+     * endpoint cannot be used to probe tokens. Already-issued access tokens stay valid until they expire.
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@Valid @RequestBody RefreshTokenRequest request) {
+        authUseCase.logout(request.refreshToken());
+        return ResponseEntity.noContent().build();
+    }
+
     private static AuthResponse toResponse(AuthResult result) {
-        return new AuthResponse(result.token(), result.userId(), result.username(), result.roles());
+        return new AuthResponse(result.token(), "Bearer", result.expiresInSeconds(), result.refreshToken(),
+                result.userId(), result.username(), result.roles());
     }
 }

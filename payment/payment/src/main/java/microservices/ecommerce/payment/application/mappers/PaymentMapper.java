@@ -18,6 +18,7 @@ public class PaymentMapper {
                 .status(domain.getStatus())
                 .paymentMethod(domain.getPaymentMethod())
                 .transactionReference(domain.getTransactionReference())
+                .userId(domain.getUserId())
                 .createdAt(domain.getCreatedAt())
                 .updatedAt(domain.getUpdatedAt())
                 .build();
@@ -26,7 +27,7 @@ public class PaymentMapper {
     public Payment toDomain(PaymentEntity entity) {
         if (entity == null)
             return null;
-        return new Payment(
+        Payment domain = new Payment(
                 entity.getId(),
                 entity.getOrderId(),
                 entity.getAmount(),
@@ -36,6 +37,8 @@ public class PaymentMapper {
                 entity.getTransactionReference(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt());
+        domain.setUserId(entity.getUserId());
+        return domain;
     }
 
     public microservices.ecommerce.payment.infrastructure.adapters.in.controllers.dtos.PaymentResponse toResponse(

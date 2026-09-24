@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 
+import java.util.Arrays;
 import java.util.UUID;
 
 @RestController
@@ -30,9 +31,12 @@ public class OrderCancellationController {
     @PostMapping("/{orderId}/cancel")
     public Mono<ResponseEntity<CancellationResponse>> cancelOrder(
             @RequestHeader(JwtAuthenticationFilter.USER_ID_HEADER) UUID userId,
+            @RequestHeader(value = JwtAuthenticationFilter.USER_ROLES_HEADER, required = false) String roles,
             @PathVariable UUID orderId) {
         log.info("Order cancellation request received for order: {} by user: {}", orderId, userId);
-        return cancellationService.cancelOrder(orderId, userId)
+        boolean admin = roles != null
+                && Arrays.stream(roles.split(",")).map(String::trim).anyMatch(JwtAuthenticationFilter.ADMIN_ROLE::equals);
+        return cancellationService.cancelOrder(orderId, userId, admin)
                 .map(ResponseEntity::ok);
     }
 }

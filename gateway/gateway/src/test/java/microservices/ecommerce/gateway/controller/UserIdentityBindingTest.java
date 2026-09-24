@@ -82,14 +82,31 @@ class UserIdentityBindingTest {
     void cancelOrder_passesAuthenticatedUserIdForOwnershipCheck() {
         UUID authenticatedUser = UUID.randomUUID();
         UUID orderId = UUID.randomUUID();
-        when(cancellationService.cancelOrder(orderId, authenticatedUser))
+        when(cancellationService.cancelOrder(orderId, authenticatedUser, false))
                 .thenReturn(Mono.just(new CancellationResponse(orderId, "CANCELLED", "ok")));
 
         client.post().uri("/api/v1/orders/{id}/cancel", orderId)
                 .header(JwtAuthenticationFilter.USER_ID_HEADER, authenticatedUser.toString())
+                .header(JwtAuthenticationFilter.USER_ROLES_HEADER, "USER")
                 .exchange()
                 .expectStatus().isOk();
 
-        verify(cancellationService).cancelOrder(orderId, authenticatedUser);
+        verify(cancellationService).cancelOrder(orderId, authenticatedUser, false);
+    }
+
+    @Test
+    void cancelOrder_adminRole_isPassedAsAdmin() {
+        UUID adminUser = UUID.randomUUID();
+        UUID orderId = UUID.randomUUID();
+        when(cancellationService.cancelOrder(orderId, adminUser, true))
+                .thenReturn(Mono.just(new CancellationResponse(orderId, "CANCELLED", "ok")));
+
+        client.post().uri("/api/v1/orders/{id}/cancel", orderId)
+                .header(JwtAuthenticationFilter.USER_ID_HEADER, adminUser.toString())
+                .header(JwtAuthenticationFilter.USER_ROLES_HEADER, "USER,ADMIN")
+                .exchange()
+                .expectStatus().isOk();
+
+        verify(cancellationService).cancelOrder(orderId, adminUser, true);
     }
 }

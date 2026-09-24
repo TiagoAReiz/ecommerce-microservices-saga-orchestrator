@@ -1,5 +1,7 @@
 package microservices.ecommerce.order.infrastructure.adapters.in.controllers;
 
+import microservices.ecommerce.order.core.exceptions.ResourceNotFoundException;
+import microservices.ecommerce.order.infrastructure.adapters.in.controllers.security.AccessDeniedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -20,6 +22,18 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.toMap(FieldError::getField, FieldError::getDefaultMessage,
                         (a, b) -> a));
         return Map.of("status", 400, "error", "Validation failed", "fields", fieldErrors);
+    }
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public Map<String, Object> handleNotFound(ResourceNotFoundException ex) {
+        return Map.of("status", 404, "error", "Not Found", "message", String.valueOf(ex.getMessage()));
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public Map<String, Object> handleAccessDenied(AccessDeniedException ex) {
+        return Map.of("status", 403, "error", "Forbidden", "message", String.valueOf(ex.getMessage()));
     }
 
     // Fallback: unexpected/business errors surface as a structured 500 instead of a raw stack trace.
