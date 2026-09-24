@@ -6,12 +6,14 @@ import microservices.ecommerce.inventory.application.ports.in.usecases.Inventory
 import microservices.ecommerce.inventory.core.entities.Inventory;
 import microservices.ecommerce.inventory.infrastructure.adapters.in.controllers.dtos.InventoryRequest;
 import microservices.ecommerce.inventory.infrastructure.adapters.in.controllers.dtos.InventoryResponse;
+import microservices.ecommerce.inventory.infrastructure.adapters.in.controllers.security.Caller;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
+/** Stock changes are back-office/saga operations (ADMIN or internal); reading stock is open. */
 @RestController
 @RequestMapping("/api/v1/inventory")
 @RequiredArgsConstructor
@@ -21,7 +23,11 @@ public class InventoryController {
     private final InventoryMapper inventoryMapper;
 
     @PostMapping("/stock")
-    public ResponseEntity<InventoryResponse> addStock(@Valid @RequestBody InventoryRequest request) {
+    public ResponseEntity<InventoryResponse> addStock(
+            @RequestHeader(value = Caller.USER_ID_HEADER, required = false) String userIdHeader,
+            @RequestHeader(value = Caller.USER_ROLES_HEADER, required = false) String rolesHeader,
+            @Valid @RequestBody InventoryRequest request) {
+        Caller.from(userIdHeader, rolesHeader).requireAdminOrInternal();
         Inventory inventory = inventoryUseCase.addStock(request.productId(), request.quantityAvailable()); // using
                                                                                                            // quantityAvailable
                                                                                                            // field as
@@ -32,7 +38,11 @@ public class InventoryController {
     }
 
     @PostMapping("/reserve")
-    public ResponseEntity<InventoryResponse> reserveStock(@Valid @RequestBody InventoryRequest request) {
+    public ResponseEntity<InventoryResponse> reserveStock(
+            @RequestHeader(value = Caller.USER_ID_HEADER, required = false) String userIdHeader,
+            @RequestHeader(value = Caller.USER_ROLES_HEADER, required = false) String rolesHeader,
+            @Valid @RequestBody InventoryRequest request) {
+        Caller.from(userIdHeader, rolesHeader).requireAdminOrInternal();
         Inventory inventory = inventoryUseCase.reserveStock(request.productId(), request.quantityReserved()); // using
                                                                                                               // quantityReserved
                                                                                                               // field
@@ -46,7 +56,11 @@ public class InventoryController {
     }
 
     @PostMapping("/release")
-    public ResponseEntity<InventoryResponse> releaseStock(@Valid @RequestBody InventoryRequest request) {
+    public ResponseEntity<InventoryResponse> releaseStock(
+            @RequestHeader(value = Caller.USER_ID_HEADER, required = false) String userIdHeader,
+            @RequestHeader(value = Caller.USER_ROLES_HEADER, required = false) String rolesHeader,
+            @Valid @RequestBody InventoryRequest request) {
+        Caller.from(userIdHeader, rolesHeader).requireAdminOrInternal();
         Inventory inventory = inventoryUseCase.releaseStock(request.productId(), request.quantityReserved()); // again,
                                                                                                               // using
                                                                                                               // as

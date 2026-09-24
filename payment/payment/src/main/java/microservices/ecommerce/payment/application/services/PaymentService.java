@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import microservices.ecommerce.payment.application.ports.in.usecases.PaymentUseCase;
 import microservices.ecommerce.payment.application.ports.out.repositories.PaymentRepository;
 import microservices.ecommerce.payment.core.entities.Payment;
+import microservices.ecommerce.payment.core.exceptions.ResourceNotFoundException;
 import microservices.ecommerce.payment.infrastructure.adapters.in.controllers.dtos.PaymentRequest;
 import org.springframework.stereotype.Service;
 
@@ -33,13 +34,15 @@ public class PaymentService implements PaymentUseCase {
                 LocalDateTime.now(),
                 LocalDateTime.now());
 
+        payment.setUserId(paymentRequest.userId());
+
         return paymentRepository.save(payment);
     }
 
     @Override
     public Payment getPaymentById(UUID id) {
         return paymentRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Payment not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Payment not found with id: " + id));
     }
 
     @Override

@@ -43,6 +43,9 @@ public class PaymentEntity {
     @Column(name = "transaction_reference")
     private String transactionReference;
 
+    @Column(name = "user_id")
+    private UUID userId;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

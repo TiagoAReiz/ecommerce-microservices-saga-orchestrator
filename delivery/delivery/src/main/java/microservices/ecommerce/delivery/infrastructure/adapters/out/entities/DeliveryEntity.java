@@ -42,6 +42,9 @@ public class DeliveryEntity {
     @Column(name = "actual_delivery_date")
     private LocalDate actualDeliveryDate;
 
+    @Column(name = "user_id")
+    private UUID userId;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
