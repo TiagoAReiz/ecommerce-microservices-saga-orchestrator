@@ -8,7 +8,7 @@ import microservices.ecommerce.gateway.dto.order.OrderItemResponse;
 import microservices.ecommerce.gateway.dto.order.OrderResponse;
 import microservices.ecommerce.gateway.dto.payment.PaymentResponse;
 import microservices.ecommerce.gateway.entity.SagaState;
-import microservices.ecommerce.gateway.exception.ForbiddenResourceException;
+import microservices.ecommerce.gateway.exception.ResourceNotFoundException;
 import microservices.ecommerce.gateway.saga.SagaExecutionCoordinator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,20 +55,31 @@ public class OrderCancellationService {
      *               owner of the order may cancel it
      */
     public Mono<CancellationResponse> cancelOrder(UUID orderId, UUID userId) {
-        return sagaCoordinator.startSaga(SAGA_TYPE, userId)
-                .flatMap(saga -> sagaCoordinator.setOrderId(saga, orderId))
-                .flatMap(saga -> executeCancellationPipeline(saga, orderId, userId));
+        return cancelOrder(orderId, userId, false);
     }
 
-    private Mono<CancellationResponse> executeCancellationPipeline(SagaState saga, UUID orderId, UUID userId) {
+    /**
+     * @param admin the caller has the ADMIN role and may cancel any user's order (back-office)
+     */
+    public Mono<CancellationResponse> cancelOrder(UUID orderId, UUID userId, boolean admin) {
+        return sagaCoordinator.startSaga(SAGA_TYPE, userId)
+                .flatMap(saga -> sagaCoordinator.setOrderId(saga, orderId))
+                .flatMap(saga -> executeCancellationPipeline(saga, orderId, userId, admin));
+    }
+
+    private Mono<CancellationResponse> executeCancellationPipeline(SagaState saga, UUID orderId, UUID userId,
+                                                                   boolean admin) {
         // Step 1: Get order, check ownership and validate status
         return sagaCoordinator.updateStep(saga, "GET_ORDER")
                 .flatMap(s -> getOrder(orderId))
+                .onErrorResume(WebClientResponseException.NotFound.class, e ->
+                        sagaCoordinator.failSaga(saga, "Order not found")
+                                .then(Mono.error(new ResourceNotFoundException("Order " + orderId + " not found"))))
                 .flatMap(order -> {
-                    if (!userId.equals(order.userId())) {
+                    // 404 rather than 403: do not reveal that another user's order with this id exists
+                    if (!admin && !userId.equals(order.userId())) {
                         return sagaCoordinator.failSaga(saga, "Order does not belong to the requesting user")
-                                .then(Mono.error(new ForbiddenResourceException(
-                                        "Order " + orderId + " does not belong to the authenticated user")));
+                                .then(Mono.error(new ResourceNotFoundException("Order " + orderId + " not found")));
                     }
 
                     if (NON_CANCELLABLE_STATUSES.contains(order.status())) {

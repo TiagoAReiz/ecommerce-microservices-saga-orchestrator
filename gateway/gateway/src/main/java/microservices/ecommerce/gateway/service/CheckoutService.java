@@ -210,7 +210,7 @@ public class CheckoutService {
                 ? order.totalAmount()
                 : cartTotal(cartItems);
         PaymentRequest paymentRequest = new PaymentRequest(
-                order.id(), amount, request.currency(), request.paymentMethod()
+                order.id(), amount, request.currency(), request.paymentMethod(), order.userId()
         );
 
         return paymentWebClient.post()
@@ -225,7 +225,8 @@ public class CheckoutService {
                 order.id(),
                 "DEFAULT_CARRIER",
                 "TRK-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase(),
-                LocalDateTime.now().plusDays(7)
+                LocalDateTime.now().plusDays(7),
+                order.userId()
         );
 
         return deliveryWebClient.post()

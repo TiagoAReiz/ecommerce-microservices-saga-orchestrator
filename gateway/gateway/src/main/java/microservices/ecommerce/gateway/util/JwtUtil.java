@@ -42,12 +42,15 @@ public class JwtUtil {
         return parseClaims(token).getSubject();
     }
 
-    @SuppressWarnings("unchecked")
     public List<String> getRoles(String token) {
-        Claims claims = parseClaims(token);
+        return getRoles(parseClaims(token));
+    }
+
+    /** The {@code roles} claim as strings; empty when absent or not a list. */
+    public List<String> getRoles(Claims claims) {
         Object roles = claims.get("roles");
-        if (roles instanceof List<?>) {
-            return (List<String>) roles;
+        if (roles instanceof List<?> list) {
+            return list.stream().filter(java.util.Objects::nonNull).map(Object::toString).toList();
         }
         return List.of();
     }
