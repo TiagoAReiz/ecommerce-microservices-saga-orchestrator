@@ -1,6 +1,7 @@
 package microservices.ecommerce.users.infrastructure.adapters.in.controllers;
 
 import microservices.ecommerce.users.core.exceptions.InvalidCredentialsException;
+import microservices.ecommerce.users.core.exceptions.InvalidRefreshTokenException;
 import microservices.ecommerce.users.core.exceptions.UserAlreadyExistsException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -29,6 +30,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InvalidCredentialsException.class)
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public Map<String, Object> handleInvalidCredentials(InvalidCredentialsException ex) {
+        return Map.of("status", 401, "error", "Unauthorized", "message", ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidRefreshTokenException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public Map<String, Object> handleInvalidRefreshToken(InvalidRefreshTokenException ex) {
         return Map.of("status", 401, "error", "Unauthorized", "message", ex.getMessage());
     }
 

@@ -5,6 +5,7 @@ import microservices.ecommerce.users.application.ports.in.usecases.AuthUseCase;
 import microservices.ecommerce.users.application.ports.in.usecases.LoginCommand;
 import microservices.ecommerce.users.application.ports.in.usecases.RegisterCommand;
 import microservices.ecommerce.users.core.exceptions.InvalidCredentialsException;
+import microservices.ecommerce.users.core.exceptions.InvalidRefreshTokenException;
 import microservices.ecommerce.users.core.exceptions.UserAlreadyExistsException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,13 +45,16 @@ class AuthControllerTest {
     void register_validRequest_returns201WithToken() throws Exception {
         UUID userId = UUID.randomUUID();
         when(authUseCase.register(new RegisterCommand("alice", "alice@example.com", "s3cret-pass")))
-                .thenReturn(new AuthResult("jwt-token", userId, "alice", List.of("USER")));
+                .thenReturn(new AuthResult("jwt-token", 900, "refresh-token", userId, "alice", List.of("USER")));
 
         mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REGISTER_BODY))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.token").value("jwt-token"))
+                .andExpect(jsonPath("$.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.expiresIn").value(900))
+                .andExpect(jsonPath("$.refreshToken").value("refresh-token"))
                 .andExpect(jsonPath("$.userId").value(userId.toString()))
                 .andExpect(jsonPath("$.username").value("alice"))
                 .andExpect(jsonPath("$.roles[0]").value("USER"));
@@ -86,7 +90,7 @@ class AuthControllerTest {
     void login_validCredentials_returns200WithToken() throws Exception {
         UUID userId = UUID.randomUUID();
         when(authUseCase.login(new LoginCommand("alice", "s3cret-pass")))
-                .thenReturn(new AuthResult("jwt-token", userId, "alice", List.of("USER")));
+                .thenReturn(new AuthResult("jwt-token", 900, "refresh-token", userId, "alice", List.of("USER")));
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -117,5 +121,57 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.fields.password").exists());
 
         verify(authUseCase, never()).login(any());
+    }
+
+    @Test
+    void refresh_validToken_returns200WithRotatedTokens() throws Exception {
+        UUID userId = UUID.randomUUID();
+        when(authUseCase.refresh("old-refresh"))
+                .thenReturn(new AuthResult("new-jwt", 900, "new-refresh", userId, "alice", List.of("USER")));
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"refreshToken":"old-refresh"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").value("new-jwt"))
+                .andExpect(jsonPath("$.refreshToken").value("new-refresh"));
+    }
+
+    @Test
+    void refresh_invalidToken_returns401() throws Exception {
+        when(authUseCase.refresh(any())).thenThrow(new InvalidRefreshTokenException());
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"refreshToken":"reused"}
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Invalid or expired refresh token"));
+    }
+
+    @Test
+    void refresh_missingToken_returns400() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fields.refreshToken").exists());
+
+        verify(authUseCase, never()).refresh(any());
+    }
+
+    @Test
+    void logout_returns204() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"refreshToken":"some-refresh"}
+                                """))
+                .andExpect(status().isNoContent());
+
+        verify(authUseCase).logout("some-refresh");
     }
 }

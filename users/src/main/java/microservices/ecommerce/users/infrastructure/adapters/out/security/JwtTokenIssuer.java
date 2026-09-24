@@ -42,4 +42,9 @@ public class JwtTokenIssuer implements TokenIssuer {
                 .signWith(key, Jwts.SIG.HS256)
                 .compact();
     }
+
+    @Override
+    public long accessTokenTtlSeconds() {
+        return expirationMs / 1000;
+    }
 }
