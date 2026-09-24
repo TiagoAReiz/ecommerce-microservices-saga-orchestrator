@@ -63,15 +63,18 @@ public class CheckoutService {
         this.objectMapper = objectMapper;
     }
 
-    public Mono<CheckoutResponse> executeCheckout(CheckoutRequest request) {
-        return sagaCoordinator.startSaga(SAGA_TYPE, request.userId())
-                .flatMap(saga -> executeCheckoutPipeline(saga, request));
+    /**
+     * @param userId authenticated user (from the gateway-issued {@code X-User-Id} header), never from the body
+     */
+    public Mono<CheckoutResponse> executeCheckout(UUID userId, CheckoutRequest request) {
+        return sagaCoordinator.startSaga(SAGA_TYPE, userId)
+                .flatMap(saga -> executeCheckoutPipeline(saga, userId, request));
     }
 
-    private Mono<CheckoutResponse> executeCheckoutPipeline(SagaState saga, CheckoutRequest request) {
+    private Mono<CheckoutResponse> executeCheckoutPipeline(SagaState saga, UUID userId, CheckoutRequest request) {
         // Step 1: Get Cart
         return sagaCoordinator.updateStep(saga, "GET_CART")
-                .flatMap(s -> getCart(request.userId()))
+                .flatMap(s -> getCart(userId))
                 .flatMap(cart -> {
                     if (cart.items() == null || cart.items().isEmpty()) {
                         return sagaCoordinator.failSaga(saga, "Cart is empty")
@@ -93,7 +96,7 @@ public class CheckoutService {
 
                                 // Step 3: Create Order
                                 return sagaCoordinator.updateStep(saga, "CREATE_ORDER")
-                                        .flatMap(s -> createOrder(request, cartItems))
+                                        .flatMap(s -> createOrder(userId, request, cartItems))
                                         .flatMap(order -> {
                                             log.info("Saga [{}] id={} - Order created: {}",
                                                     SAGA_TYPE, saga.getId(), order.id());
@@ -116,7 +119,7 @@ public class CheckoutService {
 
                                                                                 // Step 6: Checkout cart (mark as COMPLETED)
                                                                                 return sagaCoordinator.updateStep(saga, "CHECKOUT_CART")
-                                                                                        .flatMap(s2 -> checkoutCart(request.userId()))
+                                                                                        .flatMap(s2 -> checkoutCart(userId))
                                                                                         .then(Mono.defer(() -> sagaCoordinator.completeSaga(saga)))
                                                                                         .thenReturn(new CheckoutResponse(
                                                                                                 order.id(),
@@ -181,13 +184,13 @@ public class CheckoutService {
                 .collectList();
     }
 
-    private Mono<OrderResponse> createOrder(CheckoutRequest request, List<CartItemResponse> cartItems) {
+    private Mono<OrderResponse> createOrder(UUID userId, CheckoutRequest request, List<CartItemResponse> cartItems) {
         List<OrderItemRequest> orderItems = cartItems.stream()
                 .map(ci -> new OrderItemRequest(ci.productId(), ci.quantity()))
                 .toList();
 
         OrderRequest orderRequest = new OrderRequest(
-                request.userId(),
+                userId,
                 request.shippingAddressId(),
                 orderItems
         );
