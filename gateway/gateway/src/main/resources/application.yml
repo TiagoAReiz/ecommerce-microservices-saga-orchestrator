@@ -85,6 +85,8 @@ app:
     secret: ${JWT_SECRET}
     # Comma-separated Ant patterns that skip JWT validation
     public-paths: /api/v1/auth/**,/api/v1/products/**,/actuator/**
+    # Ant patterns whose {userId} segment must equal the token subject (403 otherwise)
+    user-scoped-paths: /api/v1/carts/{userId}/**,/api/v1/orders/user/{userId}
   saga:
     recovery:
       stuck-threshold-minutes: 5

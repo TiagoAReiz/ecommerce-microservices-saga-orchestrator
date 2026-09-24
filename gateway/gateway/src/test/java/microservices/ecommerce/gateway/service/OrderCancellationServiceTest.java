@@ -7,6 +7,7 @@ import microservices.ecommerce.gateway.dto.inventory.InventoryResponse;
 import microservices.ecommerce.gateway.dto.order.OrderItemResponse;
 import microservices.ecommerce.gateway.dto.order.OrderResponse;
 import microservices.ecommerce.gateway.entity.SagaState;
+import microservices.ecommerce.gateway.exception.ForbiddenResourceException;
 import microservices.ecommerce.gateway.saga.SagaExecutionCoordinator;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -30,6 +31,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -104,7 +106,7 @@ class OrderCancellationServiceTest {
         enqueue(delivery);                 // GET /api/v1/deliveries/order/{id}
         enqueue(cancelledDelivery);        // PATCH /api/v1/deliveries/{id}/status (CANCELLED)
 
-        StepVerifier.create(cancellationService.cancelOrder(orderId))
+        StepVerifier.create(cancellationService.cancelOrder(orderId, order.userId()))
                 .assertNext(response -> {
                     assertThat(response.orderId()).isEqualTo(orderId);
                     assertThat(response.orderStatus()).isEqualTo("CANCELLED");
@@ -112,6 +114,26 @@ class OrderCancellationServiceTest {
                 .verifyComplete();
 
         verify(sagaCoordinator).completeSaga(any());
+        verify(sagaCoordinator).startSaga("ORDER_CANCELLATION", order.userId());
+    }
+
+    @Test
+    void cancelOrder_orderOfAnotherUser_failsWithForbiddenAndChangesNothing() throws Exception {
+        UUID orderId = UUID.randomUUID();
+        UUID owner = UUID.randomUUID();
+        UUID attacker = UUID.randomUUID();
+        OrderResponse order = new OrderResponse(orderId, owner, "CREATED",
+                BigDecimal.TEN, UUID.randomUUID(), null, null, List.of());
+        enqueue(order);
+
+        StepVerifier.create(cancellationService.cancelOrder(orderId, attacker))
+                .expectError(ForbiddenResourceException.class)
+                .verify();
+
+        verify(sagaCoordinator).failSaga(any(), anyString());
+        verify(sagaCoordinator, never()).completeSaga(any());
+        // Only the GET of the order reached downstream: no status change, no inventory release, no refund
+        assertThat(mockWebServer.getRequestCount()).isEqualTo(1);
     }
 
     @Test
@@ -121,7 +143,7 @@ class OrderCancellationServiceTest {
                 BigDecimal.TEN, UUID.randomUUID(), null, null, List.of());
         enqueue(shippedOrder);
 
-        StepVerifier.create(cancellationService.cancelOrder(orderId))
+        StepVerifier.create(cancellationService.cancelOrder(orderId, shippedOrder.userId()))
                 .expectError(IllegalStateException.class)
                 .verify();
 
@@ -135,7 +157,7 @@ class OrderCancellationServiceTest {
                 BigDecimal.TEN, UUID.randomUUID(), null, null, List.of());
         enqueue(deliveredOrder);
 
-        StepVerifier.create(cancellationService.cancelOrder(orderId))
+        StepVerifier.create(cancellationService.cancelOrder(orderId, deliveredOrder.userId()))
                 .expectError(IllegalStateException.class)
                 .verify();
     }
@@ -158,7 +180,7 @@ class OrderCancellationServiceTest {
         mockWebServer.enqueue(new MockResponse().setResponseCode(404)); // no payment found
         mockWebServer.enqueue(new MockResponse().setResponseCode(404)); // no delivery found
 
-        StepVerifier.create(cancellationService.cancelOrder(orderId))
+        StepVerifier.create(cancellationService.cancelOrder(orderId, order.userId()))
                 .assertNext(response -> assertThat(response.orderStatus()).isEqualTo("CANCELLED"))
                 .verifyComplete();
     }

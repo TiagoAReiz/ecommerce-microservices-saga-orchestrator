@@ -113,9 +113,9 @@ class CheckoutServiceTest {
         enqueue(delivery);
         mockWebServer.enqueue(new MockResponse().setResponseCode(200)); // checkout cart
 
-        CheckoutRequest request = new CheckoutRequest(userId, addressId, "BRL", "CREDIT_CARD");
+        CheckoutRequest request = new CheckoutRequest(addressId, "BRL", "CREDIT_CARD");
 
-        StepVerifier.create(checkoutService.executeCheckout(request))
+        StepVerifier.create(checkoutService.executeCheckout(userId, request))
                 .assertNext(response -> {
                     assertThat(response.orderId()).isEqualTo(orderId);
                     assertThat(response.paymentStatus()).isEqualTo("AUTHORIZED");
@@ -124,6 +124,17 @@ class CheckoutServiceTest {
                 .verifyComplete();
 
         verify(sagaCoordinator).completeSaga(any());
+        verify(sagaCoordinator).startSaga("CHECKOUT", userId);
+
+        // The authenticated user id drives every user-scoped downstream call
+        assertThat(mockWebServer.takeRequest().getPath()).isEqualTo("/api/v1/carts/" + userId); // get cart
+        mockWebServer.takeRequest();                                                            // reserve stock
+        assertThat(mockWebServer.takeRequest().getBody().readUtf8())                            // create order
+                .contains("\"userId\":\"" + userId + "\"");
+        mockWebServer.takeRequest();                                                            // payment
+        mockWebServer.takeRequest();                                                            // delivery
+        assertThat(mockWebServer.takeRequest().getPath())                                       // checkout cart
+                .isEqualTo("/api/v1/carts/" + userId + "/checkout");
     }
 
     @Test
@@ -132,9 +143,9 @@ class CheckoutServiceTest {
         CartResponse emptyCart = new CartResponse(UUID.randomUUID(), userId, "ACTIVE", null, null, List.of());
         enqueue(emptyCart);
 
-        CheckoutRequest request = new CheckoutRequest(userId, UUID.randomUUID(), "BRL", "CREDIT_CARD");
+        CheckoutRequest request = new CheckoutRequest(UUID.randomUUID(), "BRL", "CREDIT_CARD");
 
-        StepVerifier.create(checkoutService.executeCheckout(request))
+        StepVerifier.create(checkoutService.executeCheckout(userId, request))
                 .expectError(IllegalArgumentException.class)
                 .verify();
 
@@ -151,9 +162,9 @@ class CheckoutServiceTest {
         enqueue(cart);
         mockWebServer.enqueue(new MockResponse().setResponseCode(500).setBody("Inventory error"));
 
-        CheckoutRequest request = new CheckoutRequest(userId, UUID.randomUUID(), "BRL", "CREDIT_CARD");
+        CheckoutRequest request = new CheckoutRequest(UUID.randomUUID(), "BRL", "CREDIT_CARD");
 
-        StepVerifier.create(checkoutService.executeCheckout(request))
+        StepVerifier.create(checkoutService.executeCheckout(userId, request))
                 .expectError(SagaStepFailedException.class)
                 .verify();
     }
@@ -178,9 +189,9 @@ class CheckoutServiceTest {
         mockWebServer.enqueue(new MockResponse().setResponseCode(200)); // cancel order (compensation)
         enqueue(inventory);                                              // release inventory (compensation)
 
-        CheckoutRequest request = new CheckoutRequest(userId, addressId, "BRL", "CREDIT_CARD");
+        CheckoutRequest request = new CheckoutRequest(addressId, "BRL", "CREDIT_CARD");
 
-        StepVerifier.create(checkoutService.executeCheckout(request))
+        StepVerifier.create(checkoutService.executeCheckout(userId, request))
                 .expectError(SagaStepFailedException.class)
                 .verify();
 

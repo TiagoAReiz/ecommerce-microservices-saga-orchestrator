@@ -48,6 +48,16 @@ public class GlobalExceptionHandler {
         ));
     }
 
+    @ExceptionHandler(ForbiddenResourceException.class)
+    public ResponseEntity<Map<String, Object>> handleForbidden(ForbiddenResourceException ex) {
+        log.warn("Forbidden: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                "error", "FORBIDDEN",
+                "message", ex.getMessage(),
+                "timestamp", LocalDateTime.now().toString()
+        ));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
