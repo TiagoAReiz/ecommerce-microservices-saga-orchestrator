@@ -16,7 +16,8 @@ Cada microserviço segue **arquitetura hexagonal** (ports & adapters) e é dono 
 - **Saga orquestrada com estado persistido** em `saga_states` (R2DBC reativo) — cada transição de passo é gravada antes da chamada remota.
 - **Compensação em duas camadas**: imediata no fluxo reativo (falha síncrona) e tardia via `SagaRecoveryJob` (saga presa > 5 min), com roteamento por tipo de saga e limite de tentativas.
 - **Gateway reativo** (Spring Cloud Gateway / WebFlux) que também é o orquestrador: rotas de passthrough para CRUD + endpoints próprios para os fluxos multi-serviço.
-- **JWT (HS256)** validado no gateway para rotas e endpoints de orquestração; o segredo vem de variável de ambiente.
+- **Autenticação completa**: o serviço `users` cadastra usuários (senha com BCrypt) e emite JWT HS256; o gateway valida o token e repassa a identidade aos serviços. O segredo vem de variável de ambiente, sem default no código.
+- **Identidade vem do token, não do cliente**: checkout e cancelamento usam o usuário autenticado, e rotas com `{userId}` na URL (carrinho, pedidos do usuário) só aceitam o próprio usuário.
 - **Database per service** + **Flyway** em todos os serviços, com `ddl-auto=validate` (o schema é versionado, o Hibernate só confere).
 - **CI no GitHub Actions**: matriz com os 8 módulos Maven rodando os testes contra um PostgreSQL real.
 
@@ -28,7 +29,7 @@ flowchart LR
 
     subgraph gw["API Gateway :8080 (Spring Cloud Gateway / WebFlux)"]
         jwt["JwtAuthenticationFilter<br/>(WebFilter HS256)"]
-        routes["Rotas passthrough<br/>/api/v1/products, carts, inventory,<br/>orders, payments, deliveries"]
+        routes["Rotas passthrough<br/>/api/v1/auth, products, carts, inventory,<br/>orders, payments, deliveries"]
         orch["Orquestradores<br/>CheckoutService<br/>OrderCancellationService"]
         coord["SagaExecutionCoordinator"]
         job["SagaRecoveryJob<br/>(cron: a cada 1 min)"]
@@ -44,7 +45,7 @@ flowchart LR
         order["order :8084"]
         payment["payment :8085"]
         products["products :8086"]
-        users["users<br/>(placeholder, fora do compose)"]
+        users["users :8087"]
     end
 
     pg[("PostgreSQL<br/>1 database por serviço")]
@@ -52,17 +53,14 @@ flowchart LR
     client --> jwt
     jwt --> routes
     jwt --> orch
-    routes --> cart & inventory & order & payment & delivery & products
+    routes --> cart & inventory & order & payment & delivery & products & users
     orch -->|WebClient| cart & inventory & order & payment & delivery
     orch --> coord
     coord --> sagadb
     job --> sagadb
     job --> router
     router -->|WebClient| inventory & order & payment & delivery
-    cart & delivery & inventory & order & payment & products --> pg
-
-    classDef placeholder stroke-dasharray: 5 5
-    class users placeholder
+    cart & delivery & inventory & order & payment & products & users --> pg
 ```
 
 | Serviço   | Porta (host) | Banco          | Responsabilidade |
@@ -74,7 +72,7 @@ flowchart LR
 | order     | 8084         | `order_db`     | Ciclo de vida do pedido |
 | payment   | 8085         | `payment_db`   | Registro de pagamento (autorização simulada) |
 | products  | 8086         | `products_db`  | Catálogo |
-| users     | —            | —              | Esqueleto Spring Boot; ainda sem funcionalidade na `main` |
+| users     | 8087         | `users_db`     | Cadastro, login (BCrypt) e emissão de JWT |
 
 ## Sagas
 
@@ -151,31 +149,41 @@ docker compose ps           # aguarde todos os serviços subirem (~1 min)
 
 O PostgreSQL cria um banco por serviço no primeiro start (`infra/postgres/init-databases.sql`) e o
 Flyway de cada serviço aplica as migrations. Para recomeçar do zero: `docker compose down -v`.
+Se você já tinha o volume de uma versão anterior (sem `users_db`), rode `docker compose down -v` uma
+vez para o script de criação dos bancos rodar de novo.
 
 ### Testando o fluxo completo
 
-Ainda não há serviço de autenticação na `main`, então gere um JWT de desenvolvimento assinado com o
-`JWT_SECRET` (Python 3, só biblioteca padrão):
+Cadastre um usuário, faça login e use o token retornado (os exemplos usam `jq` para ler o JSON):
 
 ```bash
-USER_ID=11111111-1111-1111-1111-111111111111
-PRODUCT_ID=22222222-2222-2222-2222-222222222222
-TOKEN=$(python scripts/dev-token.py $USER_ID)
 H='Content-Type: application/json'
+PRODUCT_ID=22222222-2222-2222-2222-222222222222
 
-# 1. estoque
-curl -s -X POST localhost:8080/api/v1/inventory/stock -H "$H" -H "Authorization: Bearer $TOKEN" \
+# 1. cadastro -> 201 {token, userId, username, roles}  (usuário ou e-mail repetido -> 409)
+curl -s -X POST localhost:8080/api/v1/auth/register -H "$H" \
+  -d '{"username":"alice","email":"alice@example.com","password":"s3cret-pass"}'
+
+# 2. login -> 200 {token, userId, ...}  (credenciais erradas -> 401)
+LOGIN=$(curl -s -X POST localhost:8080/api/v1/auth/login -H "$H" \
+  -d '{"username":"alice","password":"s3cret-pass"}')
+TOKEN=$(echo "$LOGIN" | jq -r .token)
+USER_ID=$(echo "$LOGIN" | jq -r .userId)
+AUTH="Authorization: Bearer $TOKEN"
+
+# 3. estoque
+curl -s -X POST localhost:8080/api/v1/inventory/stock -H "$H" -H "$AUTH" \
   -d "{\"productId\":\"$PRODUCT_ID\",\"quantityAvailable\":10,\"quantityReserved\":0}"
 
-# 2. item no carrinho
-curl -s -X POST localhost:8080/api/v1/carts/$USER_ID/items -H "$H" -H "Authorization: Bearer $TOKEN" \
+# 4. item no carrinho (o {userId} da URL precisa ser o do token, senão 403)
+curl -s -X POST localhost:8080/api/v1/carts/$USER_ID/items -H "$H" -H "$AUTH" \
   -d "{\"productId\":\"$PRODUCT_ID\",\"quantity\":2,\"priceAtAddition\":49.90}"
 
-# 3. checkout (saga) -> 201
-curl -s -X POST localhost:8080/api/v1/checkout -H "$H" -H "Authorization: Bearer $TOKEN" \
-  -d "{\"userId\":\"$USER_ID\",\"shippingAddressId\":\"33333333-3333-3333-3333-333333333333\",\"currency\":\"BRL\",\"paymentMethod\":\"CREDIT_CARD\"}"
+# 5. checkout (saga) -> 201. Não há userId no corpo: o comprador é sempre o usuário do token.
+curl -s -X POST localhost:8080/api/v1/checkout -H "$H" -H "$AUTH" \
+  -d '{"shippingAddressId":"33333333-3333-3333-3333-333333333333","currency":"BRL","paymentMethod":"CREDIT_CARD"}'
 
-# 4. estado das sagas
+# 6. estado das sagas
 docker compose exec postgres psql -U admin -d gateway_db \
   -c "select saga_type, current_step, status, retry_count from saga_states order by created_at"
 ```
@@ -195,11 +203,13 @@ testes de saga com `MockWebServer`.
 
 ## Endpoints
 
-Tudo passa pelo gateway em `http://localhost:8080`. Exceto `/api/v1/products/**`, todas as rotas
-exigem `Authorization: Bearer <jwt>`; o gateway repassa `X-User-Id` e `X-User-Roles` aos serviços.
+Tudo passa pelo gateway em `http://localhost:8080`. Exceto `/api/v1/auth/**` e `/api/v1/products/**`,
+todas as rotas exigem `Authorization: Bearer <jwt>`. O gateway descarta `X-User-Id`/`X-User-Roles`
+enviados pelo cliente e repassa aos serviços os valores extraídos do token (`sub` e `roles`).
 
 | Recurso | Endpoints |
 |---|---|
+| Autenticação (pública) | `POST /api/v1/auth/register` (201; 409 se usuário/e-mail já existe), `POST /api/v1/auth/login` (200; 401 se credenciais inválidas) |
 | Checkout (saga) | `POST /api/v1/checkout` |
 | Cancelamento (saga) | `POST /api/v1/orders/{orderId}/cancel` |
 | Produtos | `GET /api/v1/products`, `GET/PUT/DELETE /api/v1/products/{id}`, `POST /api/v1/products` |
@@ -215,7 +225,8 @@ Erros de validação retornam `400` com `{"status":400,"error":"Validation faile
 
 | Variável | Onde | Default de dev (compose) |
 |---|---|---|
-| `JWT_SECRET` | gateway — **obrigatória**, sem default no `application.yml` | `dev-only-insecure-jwt-secret-change-me-...` |
+| `JWT_SECRET` | users (assina) e gateway (valida) — **obrigatória**, mesmo valor nos dois, sem default no código | `dev-only-insecure-jwt-secret-change-me-...` |
+| `JWT_EXPIRATION_MS` | users — validade do token | `3600000` (1 h) |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` | postgres + todos os serviços | `admin` / `adminpassword` |
 | `SPRING_DATASOURCE_URL` | serviços JPA | `jdbc:postgresql://postgres:5432/<serviço>_db` |
 | `SPRING_R2DBC_URL` / `SPRING_FLYWAY_URL` | gateway | `.../gateway_db` |
@@ -243,10 +254,10 @@ Estado atual, sem maquiagem:
 - **Pedido não calcula preço**: o serviço `order` grava `unitPrice`/`totalAmount` como 0 (não consulta o catálogo). O valor cobrado vem do snapshot do carrinho (`priceAtAddition`).
 - **Reserva parcial**: com vários itens, se a reserva de um falhar, os já reservados no mesmo passo não são liberados (a falha em `RESERVE_INVENTORY` não dispara compensação).
 - **Compensação imediata não estorna pagamento nem cancela entrega** quando a falha ocorre em `SCHEDULE_DELIVERY`/`CHECKOUT_CART`; isso só existe no handler do job de recuperação.
-- **Sem serviço de autenticação na `main`**: o gateway valida JWT, mas não emite. Um serviço `users`/auth (emissão de JWT) está em desenvolvimento em um branch separado, ainda não integrado. Hoje `/api/v1/products/**` é público para qualquer método (inclusive escrita).
-- **Sem autorização por dono do recurso**: um token válido pode operar sobre qualquer `userId`.
+- **Autorização ainda parcial**: checkout, cancelamento e as rotas com `{userId}` (carrinho, `orders/user/{userId}`) são restritos ao dono, mas rotas por id de recurso (`GET /api/v1/orders/{id}`, pagamentos, entregas, `PATCH .../status`) e a escrita de estoque aceitam qualquer token válido, e `/api/v1/products/**` é público para qualquer método. Ainda não há checagem de papéis (`roles`).
+- **Sem refresh token nem revogação**: o JWT vale até expirar (`JWT_EXPIRATION_MS`).
 - **Observabilidade mínima**: logs apenas; sem Actuator, métricas ou tracing distribuído.
-- **Sem idempotência/retry nas chamadas** entre serviços e sem testes de integração ponta a ponta automatizados (o fluxo acima foi verificado manualmente via compose).
+- **Sem idempotência/retry nas chamadas** entre serviços e sem testes de integração ponta a ponta automatizados (a saga de checkout foi verificada manualmente via compose; cadastro/login e a integração do token com o gateway são cobertos por testes unitários, de controller e de contrato do JWT).
 
 ## Estrutura
 
@@ -258,8 +269,7 @@ inventory/inventory/      #  |  microserviços hexagonais:
 order/order/              #  |  core/entities · application/{ports,services,mappers}
 payment/payment/          #  |  · infrastructure/adapters/{in/controllers, out/repositories}
 products/products/        # /
-users/                    # esqueleto (placeholder)
+users/                    # autenticação: cadastro, login e emissão de JWT (hexagonal)
 infra/postgres/           # script de criação dos bancos
-scripts/dev-token.py      # gera JWT de desenvolvimento
 openspec/, gateway-orchestrator-architecture.md   # proposta e design originais do orquestrador
 ```
