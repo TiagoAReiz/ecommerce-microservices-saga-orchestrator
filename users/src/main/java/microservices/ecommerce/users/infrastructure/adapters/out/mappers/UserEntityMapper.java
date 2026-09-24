@@ -1,4 +1,4 @@
-package microservices.ecommerce.users.application.mappers;
+package microservices.ecommerce.users.infrastructure.adapters.out.mappers;
 
 import microservices.ecommerce.users.core.entities.User;
 import microservices.ecommerce.users.infrastructure.adapters.out.entities.UserEntity;
@@ -7,13 +7,16 @@ import org.springframework.stereotype.Component;
 import java.util.Arrays;
 import java.util.List;
 
+/** Maps between the domain {@link User} and its JPA representation (roles stored comma-separated). */
 @Component
-public class UserMapper {
+public class UserEntityMapper {
+
+    private static final String DEFAULT_ROLE = "USER";
 
     public User toDomain(UserEntity entity) {
         List<String> roles = entity.getRoles() != null && !entity.getRoles().isBlank()
-                ? Arrays.asList(entity.getRoles().split(","))
-                : List.of("USER");
+                ? Arrays.stream(entity.getRoles().split(",")).map(String::trim).toList()
+                : List.of(DEFAULT_ROLE);
         return new User(
                 entity.getId(),
                 entity.getUsername(),
@@ -30,7 +33,9 @@ public class UserMapper {
         entity.setUsername(user.getUsername());
         entity.setEmail(user.getEmail());
         entity.setPassword(user.getPassword());
-        entity.setRoles(user.getRoles() != null ? String.join(",", user.getRoles()) : "USER");
+        entity.setRoles(user.getRoles() != null && !user.getRoles().isEmpty()
+                ? String.join(",", user.getRoles())
+                : DEFAULT_ROLE);
         entity.setCreatedAt(user.getCreatedAt());
         return entity;
     }

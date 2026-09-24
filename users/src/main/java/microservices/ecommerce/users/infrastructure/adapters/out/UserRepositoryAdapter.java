@@ -1,8 +1,8 @@
 package microservices.ecommerce.users.infrastructure.adapters.out;
 
-import microservices.ecommerce.users.application.mappers.UserMapper;
 import microservices.ecommerce.users.application.ports.out.UserRepository;
 import microservices.ecommerce.users.core.entities.User;
+import microservices.ecommerce.users.infrastructure.adapters.out.mappers.UserEntityMapper;
 import microservices.ecommerce.users.infrastructure.adapters.out.repositories.UserJpaRepository;
 import org.springframework.stereotype.Component;
 
@@ -12,16 +12,16 @@ import java.util.Optional;
 public class UserRepositoryAdapter implements UserRepository {
 
     private final UserJpaRepository jpaRepository;
-    private final UserMapper userMapper;
+    private final UserEntityMapper mapper;
 
-    public UserRepositoryAdapter(UserJpaRepository jpaRepository, UserMapper userMapper) {
+    public UserRepositoryAdapter(UserJpaRepository jpaRepository, UserEntityMapper mapper) {
         this.jpaRepository = jpaRepository;
-        this.userMapper = userMapper;
+        this.mapper = mapper;
     }
 
     @Override
     public Optional<User> findByUsername(String username) {
-        return jpaRepository.findByUsername(username).map(userMapper::toDomain);
+        return jpaRepository.findByUsername(username).map(mapper::toDomain);
     }
 
     @Override
@@ -36,6 +36,6 @@ public class UserRepositoryAdapter implements UserRepository {
 
     @Override
     public User save(User user) {
-        return userMapper.toDomain(jpaRepository.save(userMapper.toEntity(user)));
+        return mapper.toDomain(jpaRepository.save(mapper.toEntity(user)));
     }
 }

@@ -1,14 +1,15 @@
 package microservices.ecommerce.users.application.services;
 
-import microservices.ecommerce.users.application.mappers.UserMapper;
+import microservices.ecommerce.users.application.ports.in.usecases.AuthResult;
 import microservices.ecommerce.users.application.ports.in.usecases.AuthUseCase;
+import microservices.ecommerce.users.application.ports.in.usecases.LoginCommand;
+import microservices.ecommerce.users.application.ports.in.usecases.RegisterCommand;
+import microservices.ecommerce.users.application.ports.out.PasswordHasher;
+import microservices.ecommerce.users.application.ports.out.TokenIssuer;
 import microservices.ecommerce.users.application.ports.out.UserRepository;
-import microservices.ecommerce.users.config.JwtTokenProvider;
 import microservices.ecommerce.users.core.entities.User;
-import microservices.ecommerce.users.infrastructure.adapters.in.controllers.dtos.AuthResponse;
-import microservices.ecommerce.users.infrastructure.adapters.in.controllers.dtos.LoginRequest;
-import microservices.ecommerce.users.infrastructure.adapters.in.controllers.dtos.RegisterRequest;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import microservices.ecommerce.users.core.exceptions.InvalidCredentialsException;
+import microservices.ecommerce.users.core.exceptions.UserAlreadyExistsException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -18,54 +19,48 @@ import java.util.UUID;
 @Service
 public class AuthService implements AuthUseCase {
 
+    static final String DEFAULT_ROLE = "USER";
+
     private final UserRepository userRepository;
-    private final JwtTokenProvider jwtTokenProvider;
-    private final BCryptPasswordEncoder passwordEncoder;
-    private final UserMapper userMapper;
+    private final PasswordHasher passwordHasher;
+    private final TokenIssuer tokenIssuer;
 
-    public AuthService(UserRepository userRepository,
-                       JwtTokenProvider jwtTokenProvider,
-                       BCryptPasswordEncoder passwordEncoder,
-                       UserMapper userMapper) {
+    public AuthService(UserRepository userRepository, PasswordHasher passwordHasher, TokenIssuer tokenIssuer) {
         this.userRepository = userRepository;
-        this.jwtTokenProvider = jwtTokenProvider;
-        this.passwordEncoder = passwordEncoder;
-        this.userMapper = userMapper;
+        this.passwordHasher = passwordHasher;
+        this.tokenIssuer = tokenIssuer;
     }
 
     @Override
-    public AuthResponse register(RegisterRequest request) {
-        if (userRepository.existsByUsername(request.username())) {
-            throw new IllegalArgumentException("Username already taken: " + request.username());
+    public AuthResult register(RegisterCommand command) {
+        if (userRepository.existsByUsername(command.username())) {
+            throw new UserAlreadyExistsException("Username already taken");
         }
-        if (userRepository.existsByEmail(request.email())) {
-            throw new IllegalArgumentException("Email already registered: " + request.email());
+        if (userRepository.existsByEmail(command.email())) {
+            throw new UserAlreadyExistsException("Email already registered");
         }
 
-        User user = new User();
-        user.setId(UUID.randomUUID());
-        user.setUsername(request.username());
-        user.setEmail(request.email());
-        user.setPassword(passwordEncoder.encode(request.password()));
-        user.setRoles(List.of("USER"));
-        user.setCreatedAt(LocalDateTime.now());
+        User user = new User(
+                UUID.randomUUID(),
+                command.username(),
+                command.email(),
+                passwordHasher.hash(command.rawPassword()),
+                List.of(DEFAULT_ROLE),
+                LocalDateTime.now());
 
-        User saved = userRepository.save(user);
-        String token = jwtTokenProvider.generateToken(saved);
-
-        return new AuthResponse(token, saved.getId(), saved.getUsername(), saved.getRoles());
+        return authenticated(userRepository.save(user));
     }
 
     @Override
-    public AuthResponse login(LoginRequest request) {
-        User user = userRepository.findByUsername(request.username())
-                .orElseThrow(() -> new IllegalArgumentException("Invalid username or password"));
+    public AuthResult login(LoginCommand command) {
+        User user = userRepository.findByUsername(command.username())
+                .filter(u -> passwordHasher.matches(command.rawPassword(), u.getPassword()))
+                .orElseThrow(InvalidCredentialsException::new);
 
-        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
-            throw new IllegalArgumentException("Invalid username or password");
-        }
+        return authenticated(user);
+    }
 
-        String token = jwtTokenProvider.generateToken(user);
-        return new AuthResponse(token, user.getId(), user.getUsername(), user.getRoles());
+    private AuthResult authenticated(User user) {
+        return new AuthResult(tokenIssuer.issue(user), user.getId(), user.getUsername(), user.getRoles());
     }
 }
